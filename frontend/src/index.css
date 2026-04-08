@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0e1a;
+  --color-card: #111827;
+  --color-border: #1e293b;
+  --color-text: #f1f5f9;
+  --color-dim: #94a3b8;
+  --color-accent: #38bdf8;
+  --color-red: #ef4444;
+  --color-gold: #fbbf24;
+  --color-green: #4ade80;
+  --color-orange: #fb923c;
+  --color-purple: #a78bfa;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: system-ui, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root { min-height: 100vh; }
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+
+/* 浅色主题 */
+.theme-light {
+  --color-bg: #f6f2e8;
+  --color-card: rgba(255,255,255,0.88);
+  --color-border: rgba(31,41,55,0.11);
+  --color-text: #1f2937;
+  --color-dim: #5b6472;
+  --color-accent: #b45309;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

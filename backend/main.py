@@ -1,0 +1,61 @@
+"""
+Info-Hub FastAPI 入口
+"""
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+import config  # noqa: F401  触发 sys.path 注入和环境变量加载
+from database import init_db
+from scheduler import scheduler, setup_scheduler
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动
+    init_db()
+    setup_scheduler()
+    scheduler.start()
+    logging.getLogger("info-hub").info("Info-Hub 启动完成")
+    yield
+    # 关闭
+    scheduler.shutdown()
+
+
+app = FastAPI(
+    title="Info-Hub API",
+    description="全网资讯中枢 + 自媒体爆文 + 股票复盘",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── 注册路由 ──────────────────────────────────────────────
+from routers import fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content  # noqa: E402
+
+app.include_router(fin_news.router, prefix="/api/fin-news", tags=["财经新闻"])
+app.include_router(hot_sectors.router, prefix="/api/sectors", tags=["热门板块"])
+app.include_router(zt_analysis.router, prefix="/api/zt", tags=["涨停分析"])
+app.include_router(article_gen.router, prefix="/api/article", tags=["文章生成"])
+app.include_router(review_report.router, prefix="/api/review", tags=["复盘报告"])
+app.include_router(ai_news.router, prefix="/api/ai-news", tags=["AI新闻"])
+app.include_router(trending.router, prefix="/api/trending", tags=["热门话题"])
+app.include_router(viral_content.router, prefix="/api/viral", tags=["自媒体爆款"])
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "service": "info-hub"}
