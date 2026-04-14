@@ -13,7 +13,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  activeSection: 'ai-news',
+  activeSection: 'trade-desk',
   theme: 'dark',
   sidebarCollapsed: false,
   refreshKey: 0,

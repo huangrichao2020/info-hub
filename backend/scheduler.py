@@ -2,11 +2,13 @@
 Info-Hub 定时任务调度器
 """
 import logging
+from zoneinfo import ZoneInfo
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 logger = logging.getLogger("info-hub.scheduler")
 
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(timezone=ZoneInfo("Asia/Shanghai"))
 
 
 def setup_scheduler():
@@ -34,6 +36,16 @@ def setup_scheduler():
         minutes=15,
         id="trending",
         name="热搜更新",
+    )
+    # 转强选股 - 每个交易日 09:28 执行一次
+    scheduler.add_job(
+        _generate_turn_strong,
+        "cron",
+        day_of_week="mon-fri",
+        hour=9,
+        minute=28,
+        id="turn_strong",
+        name="转强选股生成",
     )
     logger.info("定时任务已配置完成")
 
@@ -66,3 +78,14 @@ async def _collect_trending():
         logger.info(f"热搜采集完成: {count} 条")
     except Exception as e:
         logger.error(f"热搜采集失败: {e}")
+
+
+async def _generate_turn_strong():
+    """生成转强选股"""
+    try:
+        from services.turn_strong_service import generate_turn_strong_run
+
+        result = await generate_turn_strong_run(force=True)
+        logger.info("转强选股生成完成: %s 条", len(result.get("items") or []))
+    except Exception as e:
+        logger.error(f"转强选股生成失败: {e}")

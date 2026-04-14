@@ -62,11 +62,45 @@ CREATE TABLE IF NOT EXISTS review_reports (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS review_draft (
+    draft_key TEXT PRIMARY KEY,
+    portfolio_json TEXT NOT NULL,
+    report_date TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS scheduler_state (
     job_name TEXT PRIMARY KEY,
     last_run_at TEXT,
     last_status TEXT,
     items_collected INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS turn_strong_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trade_date TEXT NOT NULL UNIQUE,
+    previous_trade_date TEXT,
+    screening_query TEXT NOT NULL,
+    status TEXT NOT NULL,
+    selection_total INTEGER DEFAULT 0,
+    generated_at TEXT NOT NULL,
+    refreshed_at TEXT NOT NULL,
+    conditions_json TEXT,
+    market_snapshot_json TEXT,
+    candidates_json TEXT NOT NULL,
+    overall_analysis_json TEXT,
+    last_error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_turn_strong_runs_trade_date ON turn_strong_runs(trade_date DESC);
+
+CREATE TABLE IF NOT EXISTS mx_key_usage (
+    usage_date TEXT NOT NULL,
+    key_name TEXT NOT NULL,
+    request_count INTEGER DEFAULT 0,
+    quota_exhausted INTEGER DEFAULT 0,
+    last_used_at TEXT,
+    last_error TEXT,
+    PRIMARY KEY (usage_date, key_name)
 );
 """
 

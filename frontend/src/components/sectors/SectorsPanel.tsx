@@ -3,7 +3,33 @@ import { motion } from 'framer-motion'
 import client from '../../api/client'
 import LoadingSkeleton from '../common/LoadingSkeleton'
 import { useAppStore } from '../../stores/appStore'
-import type { IndexItem, SectorItem } from '../../types'
+import type { IndexItem, SectorItem, TurnStrongRun } from '../../types'
+
+function buildFallbackSectors(run: TurnStrongRun | null) {
+  const items = run?.items || []
+  const grouped = new Map<string, { name: string; count: number; total: number; leader: string }>()
+
+  for (const item of items) {
+    const concept = (item.screen?.style_concept || '')
+      .split(/[、,，;/]/)
+      .map((part) => part.trim())
+      .filter(Boolean)[0]
+    const name = concept || item.screen?.industry || '其他方向'
+    const current = grouped.get(name) || { name, count: 0, total: 0, leader: item.name }
+    current.count += 1
+    current.total += item.live_quote?.change_pct ?? item.screen?.change_pct ?? 0
+    if (!current.leader) current.leader = item.name
+    grouped.set(name, current)
+  }
+
+  return Array.from(grouped.values())
+    .map((group) => ({
+      name: group.name,
+      change_pct: group.count >= 2 ? Math.max(0.5, group.total / group.count) : Math.max(0.2, group.total / Math.max(1, group.count)),
+      leader: group.leader,
+    }))
+    .sort((a, b) => b.change_pct - a.change_pct)
+}
 
 export default function SectorsPanel() {
   const [indices, setIndices] = useState<IndexItem[]>([])
@@ -18,10 +44,21 @@ export default function SectorsPanel() {
       client.get('/sectors/indices'),
       client.get('/sectors/movers', { params: { limit: 10, rising: true } }),
       client.get('/sectors/movers', { params: { limit: 10, rising: false } }),
-    ]).then(([idxRes, upRes, downRes]) => {
-      setIndices(idxRes.data.items || [])
-      setRisers(upRes.data.items || [])
-      setFallers(downRes.data.items || [])
+      client.get<TurnStrongRun>('/turn-strong'),
+    ]).then(([idxRes, upRes, downRes, turnRes]) => {
+      const nextIndices = idxRes.data.items || []
+      let nextRisers = upRes.data.items || []
+      let nextFallers = downRes.data.items || []
+      const fallback = buildFallbackSectors(turnRes.data)
+      if (nextRisers.length === 0 && fallback.length > 0) {
+        nextRisers = fallback.slice(0, 10)
+      }
+      if (nextFallers.length === 0 && fallback.length > 0) {
+        nextFallers = fallback.slice(-10).reverse()
+      }
+      setIndices(nextIndices)
+      setRisers(nextRisers)
+      setFallers(nextFallers)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [refreshKey])
 

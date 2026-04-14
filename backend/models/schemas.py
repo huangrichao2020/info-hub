@@ -20,3 +20,8 @@ class PortfolioItem(BaseModel):
 class ReviewRequest(BaseModel):
     portfolio: list[PortfolioItem]
     date: str = ""
+
+
+class ReviewDraftRequest(BaseModel):
+    portfolio: list[PortfolioItem]
+    date: str = ""

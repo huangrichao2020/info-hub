@@ -1,25 +1,25 @@
+import { Suspense, lazy } from 'react'
+
 import Sidebar from './Sidebar'
 import Header from './Header'
+import AssistantPanel from '../assistant/AssistantPanel'
 import { useAppStore } from '../../stores/appStore'
+import LoadingSkeleton from '../common/LoadingSkeleton'
 
-import AINewsPanel from '../ai-news/AINewsPanel'
-import ViralPanel from '../viral/ViralPanel'
-import TrendingPanel from '../trending/TrendingPanel'
-import ArticleGenPanel from '../article-gen/ArticleGenPanel'
-import FinNewsPanel from '../fin-news/FinNewsPanel'
-import SectorsPanel from '../sectors/SectorsPanel'
-import ZTPanel from '../zt-analysis/ZTPanel'
-import ReviewPanel from '../review-report/ReviewPanel'
-
-const PANELS: Record<string, React.FC> = {
-  'ai-news': AINewsPanel,
-  'viral': ViralPanel,
-  'trending': TrendingPanel,
-  'article-gen': ArticleGenPanel,
-  'fin-news': FinNewsPanel,
-  'sectors': SectorsPanel,
-  'zt-analysis': ZTPanel,
-  'review-report': ReviewPanel,
+const PANELS = {
+  'trade-desk': lazy(() => import('../dashboard/TradeDeskPanel')),
+  'investment-calendar': lazy(() => import('../investment-calendar/InvestmentCalendarPanel')),
+  'chan-chart': lazy(() => import('../chan/ChanChartPanel')),
+  'concept-board': lazy(() => import('../concept-board/ConceptBoardPanel')),
+  'strict-turn-strong': lazy(() => import('../turn-strong/StrictTurnStrongPanel')),
+  'ai-news': lazy(() => import('../ai-news/AINewsPanel')),
+  'trending': lazy(() => import('../trending/TrendingPanel')),
+  'article-gen': lazy(() => import('../article-gen/ArticleGenPanel')),
+  'fin-news': lazy(() => import('../fin-news/FinNewsPanel')),
+  'sectors': lazy(() => import('../sectors/SectorsPanel')),
+  'zt-analysis': lazy(() => import('../zt-analysis/ZTPanel')),
+  'turn-strong': lazy(() => import('../turn-strong/TurnStrongPanel')),
+  'review-report': lazy(() => import('../review-report/ReviewPanel')),
 }
 
 export default function AppShell() {
@@ -27,8 +27,16 @@ export default function AppShell() {
   const Panel = PANELS[activeSection]
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      overflow: 'hidden',
+      background: 'var(--color-bg)',
+    }}>
+      {/* 左侧导航 */}
       <Sidebar />
+
+      {/* 中间主内容区 - 独立滚动 */}
       <div
         style={{
           flex: 1,
@@ -36,20 +44,32 @@ export default function AppShell() {
           flexDirection: 'column',
           marginLeft: sidebarCollapsed ? 64 : 220,
           transition: 'margin-left .3s',
+          minWidth: 0,
         }}
       >
         <Header />
-        <main style={{
+        <div style={{
           flex: 1,
-          padding: '20px 24px 40px',
           overflowY: 'auto',
-          maxWidth: 1200,
-          width: '100%',
-          margin: '0 auto',
+          overflowX: 'hidden',
+          padding: '20px 24px 40px',
         }}>
-          {Panel && <Panel />}
-        </main>
+          <div style={{
+            maxWidth: activeSection === 'trade-desk' ? 1320 : 1240,
+            width: '100%',
+            margin: '0 auto',
+          }}>
+            {Panel && (
+              <Suspense fallback={<LoadingSkeleton count={activeSection === 'trade-desk' ? 4 : 6} />}>
+                <Panel />
+              </Suspense>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* 右侧复盘大师 - 固定高度，独立滚动 */}
+      <AssistantPanel />
     </div>
   )
 }

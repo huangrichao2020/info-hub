@@ -1,6 +1,6 @@
 """财经新闻路由"""
 from fastapi import APIRouter, Query
-from services.news_service import get_news, get_sources, collect_financial_news
+from services.news_service import get_news_payload, get_sources, collect_financial_news
 
 router = APIRouter()
 
@@ -13,7 +13,7 @@ async def list_news(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
 ):
-    return {"items": get_news(source, keyword, hours, page, page_size)}
+    return get_news_payload(source, keyword, hours, page, page_size)
 
 
 @router.get("/sources")

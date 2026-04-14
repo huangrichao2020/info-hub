@@ -1,33 +1,20 @@
-import { Sun, Moon, RefreshCw } from 'lucide-react'
+import { Sun, Moon, RefreshCw, AlertCircle } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { SECTION_META } from '../../config/sections'
 
-const SECTION_TITLES: Record<string, string> = {
-  'ai-news': 'AI 新闻',
-  'viral': '自媒体爆款',
-  'trending': '热门话题',
-  'article-gen': '一键写文',
-  'fin-news': '财经新闻',
-  'sectors': '热门板块',
-  'zt-analysis': '涨停分析',
-  'review-report': '复盘报告',
-}
-
-const DOT_COLORS: Record<string, string> = {
-  'ai-news': 'var(--color-accent)',
-  'viral': 'var(--color-red)',
-  'trending': 'var(--color-gold)',
-  'article-gen': 'var(--color-purple)',
-  'fin-news': 'var(--color-green)',
-  'sectors': 'var(--color-orange)',
-  'zt-analysis': 'var(--color-red)',
-  'review-report': 'var(--color-accent)',
-}
+// 刷新频率限制：5分钟内最多3次
+const REFRESH_LIMIT_MS = 5 * 60 * 1000
+const REFRESH_MAX_CLICKS = 3
 
 export default function Header() {
   const { activeSection, theme, toggleTheme, triggerRefresh } = useAppStore()
   const [time, setTime] = useState('')
   const [spinning, setSpinning] = useState(false)
+  const [rateLimited, setRateLimited] = useState(false)
+  const [cooldownSec, setCooldownSec] = useState(0)
+  const clickTimesRef = useRef<number[]>([])
+  const meta = SECTION_META[activeSection]
 
   // 时钟
   useEffect(() => {
@@ -37,7 +24,7 @@ export default function Header() {
     return () => clearInterval(id)
   }, [])
 
-  // 早九晚九自动刷新
+  // 早九晚九自动刷新（不受频率限制）
   useEffect(() => {
     let firedHours = new Set<string>()
 
@@ -51,27 +38,57 @@ export default function Header() {
       }
     }
 
-    // 每分钟检查一次
     const id = setInterval(check, 60_000)
-    check() // 立即检查一次
+    check()
     return () => clearInterval(id)
   }, [triggerRefresh])
 
+  // 冷却倒计时
+  useEffect(() => {
+    if (!rateLimited) return
+    const oldest = clickTimesRef.current[0]
+    if (!oldest) return
+    const tick = () => {
+      const remaining = Math.max(0, REFRESH_LIMIT_MS - (Date.now() - oldest))
+      setCooldownSec(Math.ceil(remaining / 1000))
+      if (remaining <= 0) {
+        setRateLimited(false)
+        clickTimesRef.current = clickTimesRef.current.filter(t => Date.now() - t < REFRESH_LIMIT_MS)
+      }
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [rateLimited])
+
   const handleRefresh = useCallback(() => {
+    if (rateLimited) return
+
+    const now = Date.now()
+    // 清理超过5分钟的旧记录
+    clickTimesRef.current = clickTimesRef.current.filter(t => now - t < REFRESH_LIMIT_MS)
+
+    if (clickTimesRef.current.length >= REFRESH_MAX_CLICKS) {
+      setRateLimited(true)
+      return
+    }
+
+    clickTimesRef.current.push(now)
     setSpinning(true)
     triggerRefresh()
     setTimeout(() => setSpinning(false), 800)
-  }, [triggerRefresh])
+  }, [rateLimited, triggerRefresh])
 
   return (
     <header style={{
-      height: 56,
+      minHeight: 64,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 24px',
       borderBottom: '1px solid var(--color-border)',
-      background: 'var(--color-card)',
+      background: 'rgba(10,14,26,.88)',
+      backdropFilter: 'blur(14px)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{
@@ -79,14 +96,30 @@ export default function Header() {
           width: 10,
           height: 10,
           borderRadius: '50%',
-          background: DOT_COLORS[activeSection] || 'var(--color-accent)',
+          background: meta?.dotColor || 'var(--color-accent)',
         }} />
-        <h2 style={{ fontSize: '1.15em', fontWeight: 700, color: 'var(--color-text)' }}>
-          {SECTION_TITLES[activeSection] || ''}
-        </h2>
+        <div>
+          <h2 style={{ fontSize: '1.08em', fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.03em' }}>
+            {meta?.label || ''}
+          </h2>
+          <div style={{ marginTop: 2, fontSize: '.74em', color: 'var(--color-dim)' }}>
+            {meta?.description || ''}
+          </div>
+        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{
+          padding: '5px 10px',
+          borderRadius: 999,
+          border: '1px solid rgba(251,191,36,.18)',
+          background: 'rgba(251,191,36,.08)',
+          color: 'var(--color-gold)',
+          fontSize: '.72em',
+          fontWeight: 700,
+        }}>
+          方法论优先
+        </span>
         <span style={{
           fontFamily: 'monospace',
           fontSize: '.8em',
@@ -96,26 +129,35 @@ export default function Header() {
           {time}
         </span>
 
+        {/* 刷新按钮 - 带频率限制 */}
         <button
           onClick={handleRefresh}
-          title="刷新数据"
+          title={rateLimited ? `频率限制：${cooldownSec}秒后可再次刷新` : '刷新数据'}
           style={{
             padding: 7,
             borderRadius: 8,
-            border: `1px solid ${spinning ? 'var(--color-accent)' : 'var(--color-border)'}`,
-            background: spinning ? 'rgba(56,189,248,.08)' : 'var(--color-card)',
-            color: spinning ? 'var(--color-accent)' : 'var(--color-dim)',
-            cursor: 'pointer',
+            border: `1px solid ${rateLimited ? 'rgba(239,68,68,.3)' : spinning ? 'var(--color-accent)' : 'var(--color-border)'}`,
+            background: rateLimited ? 'rgba(239,68,68,.08)' : spinning ? 'rgba(56,189,248,.08)' : 'var(--color-card)',
+            color: rateLimited ? 'var(--color-red)' : spinning ? 'var(--color-accent)' : 'var(--color-dim)',
+            cursor: rateLimited ? 'not-allowed' : 'pointer',
             display: 'flex',
+            alignItems: 'center',
+            gap: 4,
             transition: 'all .2s',
           }}
         >
-          <RefreshCw
-            size={15}
-            style={{
-              animation: spinning ? 'spin .8s linear' : 'none',
-            }}
-          />
+          {rateLimited ? (
+            <span style={{ fontSize: '.7em', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <AlertCircle size={13} /> {cooldownSec}s
+            </span>
+          ) : (
+            <RefreshCw
+              size={15}
+              style={{
+                animation: spinning ? 'spin .8s linear' : 'none',
+              }}
+            />
+          )}
         </button>
 
         <button

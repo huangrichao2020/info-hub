@@ -54,5 +54,10 @@ export function useStreamResponse() {
     setLoading(false)
   }, [])
 
-  return { content, loading, startStream, reset }
+  const hydrate = useCallback((nextContent: string) => {
+    setContent(nextContent)
+    setLoading(false)
+  }, [])
+
+  return { content, loading, startStream, reset, hydrate }
 }

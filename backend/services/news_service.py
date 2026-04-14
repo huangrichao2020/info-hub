@@ -1,11 +1,12 @@
 """财经新闻服务 - 包装 uwillberich news_collector"""
 import asyncio
+import json
 import math
 import re
 import sqlite3
 import logging
 from datetime import datetime, timezone
-from config import UWILLBERICH_NEWS_DB
+from config import UWILLBERICH_LATEST_NEWS_JSON, UWILLBERICH_NEWS_DB, UWILLBERICH_SCRIPTS
 
 logger = logging.getLogger("info-hub.news")
 
@@ -75,56 +76,97 @@ async def collect_financial_news() -> int:
     """触发一次财经新闻采集，返回采集条数"""
     try:
         import news_collector
-        count = await asyncio.to_thread(news_collector.poll_once)
+        count = await asyncio.to_thread(
+            news_collector.poll_once,
+            UWILLBERICH_NEWS_DB,
+            UWILLBERICH_SCRIPTS,
+        )
         return count or 0
     except Exception as e:
         logger.error(f"采集失败: {e}")
         return 0
 
 
-def get_news(source: str = "", keyword: str = "", hours: int = 24, page: int = 1, page_size: int = 50) -> list[dict]:
-    """从 uwillberich 新闻库读取财经新闻，按热度排序"""
-    if not UWILLBERICH_NEWS_DB.exists():
+def _load_latest_news_json(limit: int = 200) -> list[dict]:
+    if not UWILLBERICH_LATEST_NEWS_JSON.exists():
         return []
+    try:
+        payload = json.loads(UWILLBERICH_LATEST_NEWS_JSON.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.error("latest_news.json 解析失败: %s", exc)
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [dict(item) for item in payload[:limit] if isinstance(item, dict)]
+
+
+def get_news_payload(source: str = "", keyword: str = "", hours: int = 24, page: int = 1, page_size: int = 50) -> dict:
+    """从 uwillberich 新闻库读取财经新闻，按热度排序，并返回兜底元信息"""
+    if not UWILLBERICH_NEWS_DB.exists():
+        return {"items": [], "fallback_used": False}
 
     conn = sqlite3.connect(str(UWILLBERICH_NEWS_DB))
     conn.row_factory = sqlite3.Row
 
-    sql = "SELECT * FROM news WHERE 1=1"
-    params = []
+    def fetch_rows(ignore_hours: bool = False):
+        sql = "SELECT * FROM news WHERE 1=1"
+        params = []
 
-    if source:
-        sql += " AND source = ?"
-        params.append(source)
-    if keyword:
-        sql += " AND (title LIKE ? OR summary LIKE ?)"
-        params.extend([f"%{keyword}%", f"%{keyword}%"])
-    if hours:
-        sql += " AND collected_at >= datetime('now', ?)"
-        params.append(f"-{hours} hours")
+        if source:
+            sql += " AND source = ?"
+            params.append(source)
+        if keyword:
+            sql += " AND (title LIKE ? OR summary LIKE ?)"
+            params.extend([f"%{keyword}%", f"%{keyword}%"])
+        if hours and not ignore_hours:
+            sql += " AND collected_at >= datetime('now', ?)"
+            params.append(f"-{hours} hours")
 
-    # 先拉全部，Python 层算分排序
-    sql += " ORDER BY collected_at DESC LIMIT 500"
+        sql += " ORDER BY collected_at DESC LIMIT 500"
+        return conn.execute(sql, params).fetchall()
 
     try:
-        rows = conn.execute(sql, params).fetchall()
+        rows = fetch_rows(ignore_hours=False)
+        fallback_used = False
+        if not rows and hours:
+            logger.warning("财经新闻近 %s 小时为空，回退到最近可用新闻", hours)
+            rows = fetch_rows(ignore_hours=True)
+            fallback_used = True
         items = []
-        for r in rows:
-            d = dict(r)
-            d["heat_score"] = _compute_fin_heat(
-                d.get("title", ""), d.get("summary", ""),
-                d.get("source", ""), d.get("collected_at", ""),
-            )
-            items.append(d)
+        if rows:
+            for r in rows:
+                d = dict(r)
+                d["heat_score"] = _compute_fin_heat(
+                    d.get("title", ""), d.get("summary", ""),
+                    d.get("source", ""), d.get("collected_at", ""),
+                )
+                items.append(d)
+        elif hours:
+            fallback_rows = _load_latest_news_json()
+            fallback_used = True
+            for d in fallback_rows:
+                if source and d.get("source") != source:
+                    continue
+                if keyword and keyword not in f"{d.get('title', '')}{d.get('summary', '')}":
+                    continue
+                d["heat_score"] = _compute_fin_heat(
+                    d.get("title", ""), d.get("summary", ""),
+                    d.get("source", ""), d.get("collected_at", "") or d.get("published_at", ""),
+                )
+                items.append(d)
 
         # 按热度降序
         items.sort(key=lambda x: x["heat_score"], reverse=True)
 
         # 分页
         start = (page - 1) * page_size
-        return items[start:start + page_size]
+        return {"items": items[start:start + page_size], "fallback_used": fallback_used}
     finally:
         conn.close()
+
+
+def get_news(source: str = "", keyword: str = "", hours: int = 24, page: int = 1, page_size: int = 50) -> list[dict]:
+    return get_news_payload(source, keyword, hours, page, page_size)["items"]
 
 
 def get_sources() -> list[str]:

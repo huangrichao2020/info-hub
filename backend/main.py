@@ -44,18 +44,36 @@ app.add_middleware(
 )
 
 # ── 注册路由 ──────────────────────────────────────────────
-from routers import fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content  # noqa: E402
+from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar  # noqa: E402
 
+app.include_router(chan.router, prefix="/api/chan", tags=["日K缠论图"])
+app.include_router(evidence.router, prefix="/api/evidence", tags=["交易证据"])
 app.include_router(fin_news.router, prefix="/api/fin-news", tags=["财经新闻"])
 app.include_router(hot_sectors.router, prefix="/api/sectors", tags=["热门板块"])
+app.include_router(quant_market.router, prefix="/api/amazingdata-market", tags=["AmazingData市场数据"])
+app.include_router(quant_market.router, prefix="/api/quant-market", tags=["量化市场数据兼容"])
 app.include_router(zt_analysis.router, prefix="/api/zt", tags=["涨停分析"])
+app.include_router(turn_strong.router, prefix="/api/turn-strong", tags=["转强选股"])
 app.include_router(article_gen.router, prefix="/api/article", tags=["文章生成"])
 app.include_router(review_report.router, prefix="/api/review", tags=["复盘报告"])
 app.include_router(ai_news.router, prefix="/api/ai-news", tags=["AI新闻"])
 app.include_router(trending.router, prefix="/api/trending", tags=["热门话题"])
 app.include_router(viral_content.router, prefix="/api/viral", tags=["自媒体爆款"])
+app.include_router(assistant.router, prefix="/api/assistant", tags=["复盘大师Agent"])
+app.include_router(investment_calendar.router, prefix="/api/investment-calendar", tags=["投资日历"])
 
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "info-hub"}
+
+
+@app.get("/")
+async def root():
+    return {
+        "service": "info-hub",
+        "message": "这是 Info-Hub 后端服务，不是前端页面。",
+        "frontend": "http://127.0.0.1:5174/",
+        "health": "/api/health",
+        "docs": "/docs",
+    }
