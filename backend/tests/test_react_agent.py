@@ -97,9 +97,10 @@ class SearchToolTests(unittest.TestCase):
         import asyncio
         from services.react_agent import _search_stock_info_impl
 
-        # 股票代码查询
+        # 股票代码查询 - 应该通过安全过滤（不返回"必须与股票相关"的错误）
         result = asyncio.run(_search_stock_info_impl("600519 茅台"))
-        self.assertIn("error", result)  # 网络请求可能失败，但不应该被安全过滤拦截
+        # 可能返回结果或"未找到相关信息"，但不应该是安全过滤拒绝
+        self.assertNotIn("必须与股票相关", str(result.get("error", "")))
 
     def test_search_tool_blocks_non_stock_query(self):
         """搜索工具应该拒绝非股票查询"""

@@ -168,14 +168,22 @@ from services.stock_keywords import STOCK_KEYWORDS
 
 
 async def _search_stock_info_impl(query: str) -> dict:
-    """搜索股票相关信息（基于 Jina Reader，Agent-Reach 底层能力）
+    """搜索股票相关信息（多平台搜索，基于 Jina Reader/Agent-Reach 底层能力）
 
     搜索范围限制：
     - 只允许股票代码、名称、板块关键词
     - 禁止搜索非股票相关内容
+    
+    搜索来源：
+    - 雪球（投资者讨论）
+    - 微博（市场舆情）
+    - 小红书（投资笔记）
+    - 抖音（财经短视频）
+    - 知乎（深度分析）
     """
     import re
     import httpx
+    import asyncio
 
     # 安全过滤：只允许股票相关关键词
     # 检查是否包含股票代码（6 位数字）
@@ -188,25 +196,52 @@ async def _search_stock_info_impl(query: str) -> dict:
             "error": "搜索内容必须与股票相关（股票代码、名称、板块等）。我只能提供 A 股/港股/美股市场相关信息。"
         }
 
-    # 构建搜索 URL：用 Jina Reader 搜索雪球个股页面
-    # Jina Reader 是 Agent-Reach 底层使用的网页读取服务
-    search_url = f"https://s.jina.ai/{query}"
+    # 使用 Jina Reader 读取各平台的股票相关内容
+    # Jina Reader 是 Agent-Reach 底层使用的网页读取服务，免费无需 API Key
+    # 可以读取微博、小红书、抖音、知乎等平台的公开内容
+    async def read_platform(platform: str, url: str) -> dict:
+        """使用 Jina Reader 读取平台内容"""
+        try:
+            jina_url = f"https://r.jina.ai/{url}"
+            async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
+                response = await client.get(jina_url, headers={
+                    "User-Agent": "Mozilla/5.0",
+                    "X-With-Generated-Alt": "true",
+                })
+                if response.status_code == 200:
+                    content = response.text[:1500]
+                    return {"platform": platform, "content": content} if content.strip() else None
+                return None
+        except Exception:
+            return None
 
-    try:
-        async with httpx.AsyncClient(timeout=15, trust_env=False) as client:
-            response = await client.get(search_url, headers={
-                "User-Agent": "Mozilla/5.0",
-                "X-With-Generated-Alt": "true",
-            })
-            response.raise_for_status()
-            content = response.text[:3000]  # 限制返回长度
-            return {
-                "query": query,
-                "source": "jina_reader",
-                "content": content,
-            }
-    except Exception as exc:
-        return {"error": f"搜索失败：{exc}"}
+    # 构建各平台的搜索 URL（雪球/微博/小红书/抖音/知乎）
+    platform_urls = {
+        "雪球": f"https://xueqiu.com/k?q={query}",
+        "微博": f"https://s.weibo.com/weibo?q={query}",
+        "小红书": f"https://www.xiaohongshu.com/search_result?keyword={query}",
+        "抖音": f"https://www.douyin.com/search/{query}",
+        "知乎": f"https://www.zhihu.com/search?type=content&q={query}",
+    }
+
+    # 并发读取各平台
+    tasks = [read_platform(name, url) for name, url in platform_urls.items()]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # 整合结果
+    combined = []
+    success_platforms = []
+    for result in results:
+        if isinstance(result, Exception) or result is None:
+            continue
+        combined.append(f"## {result['platform']}\n{result['content']}\n")
+        success_platforms.append(result["platform"])
+
+    return {
+        "query": query,
+        "source": f"multi_platform ({'/'.join(success_platforms) if success_platforms else '暂无结果'})",
+        "content": "\n".join(combined) if combined else "未找到相关信息，请尝试更具体的股票代码或名称。",
+    }
 
 
 async def _query_stock_quote_impl(code: str) -> dict:
