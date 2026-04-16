@@ -20,6 +20,7 @@ const PANELS = {
   'zt-analysis': lazy(() => import('../zt-analysis/ZTPanel')),
   'turn-strong': lazy(() => import('../turn-strong/TurnStrongPanel')),
   'review-report': lazy(() => import('../review-report/ReviewPanel')),
+  'wechat-search': lazy(() => import('../wechat-search/WechatSearchPanel')),
 }
 
 export default function AppShell() {

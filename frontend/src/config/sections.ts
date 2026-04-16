@@ -10,6 +10,7 @@ import {
   TrendingUp,
   CandlestickChart,
   CalendarDays,
+  MessageCircle,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -143,6 +144,15 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: PenLine,
     group: 'content',
   },
+  'wechat-search': {
+    key: 'wechat-search',
+    label: '公众号搜索',
+    shortLabel: '公众号',
+    description: '搜索和浏览微信公众号文章，获取交易复盘和市场分析资讯。',
+    dotColor: 'var(--color-green)',
+    icon: MessageCircle,
+    group: 'content',
+  },
 }
 
 export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: string }[] = [
@@ -166,4 +176,5 @@ export const SECTION_ORDER: Section[] = [
   'ai-news',
   'trending',
   'article-gen',
+  'wechat-search',
 ]

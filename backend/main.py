@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import config  # noqa: F401  触发 sys.path 注入和环境变量加载
-from database import init_db
+from database import init_db, get_db
 from scheduler import scheduler, setup_scheduler
 
 # ===== 日志配置 =====
@@ -37,10 +37,54 @@ logging.basicConfig(
 logger = logging.getLogger("info-hub")
 
 
+def init_keywords():
+    """初始化关键词数据（公众号搜索专用）"""
+    default_keywords = [
+        # 原有关键词（用于其他模块）
+        "股票", "基金", "投资", "理财", "财经", "市场", "行情", "交易",
+        "A股", "港股", "美股", "期货", "期权", "债券", "宏观", "经济",
+        "公司", "企业", "行业", "板块", "热点", "机会", "风险", "策略",
+    ]
+
+    # 公众号搜索专用关键词（带分类和优先级）
+    wechat_keywords = [
+        ("复盘", "复盘", 10),
+        ("交易复盘", "复盘", 10),
+        ("盘前", "盘前", 10),
+        ("盘前预判", "盘前", 10),
+        ("股票", "股票", 5),
+        ("股市", "股票", 5),
+        ("热点", "热点", 8),
+        ("市场热点", "热点", 8),
+        ("涨停", "股票", 7),
+        ("跌停", "股票", 7),
+        ("龙头股", "股票", 7),
+        ("A股分析", "股票", 6),
+    ]
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 插入原有关键词（不分类别）
+        for keyword in default_keywords:
+            cursor.execute("""
+                INSERT OR IGNORE INTO keywords (word) VALUES (?)
+            """, (keyword,))
+        
+        # 插入公众号专用关键词（带分类和优先级）
+        for word, category, priority in wechat_keywords:
+            cursor.execute("""
+                INSERT OR IGNORE INTO keywords (word, category, priority) VALUES (?, ?, ?)
+            """, (word, category, priority))
+        
+        logger.info("关键词初始化完成")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动
     init_db()
+    init_keywords()
     setup_scheduler()
     scheduler.start()
     logger.info("Info-Hub 启动完成 | 日志目录: %s", LOG_DIR)
@@ -66,7 +110,7 @@ app.add_middleware(
 )
 
 # ── 注册路由 ──────────────────────────────────────────────
-from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar  # noqa: E402
+from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat  # noqa: E402
 
 app.include_router(chan.router, prefix="/api/chan", tags=["日K缠论图"])
 app.include_router(evidence.router, prefix="/api/evidence", tags=["交易证据"])
@@ -83,6 +127,7 @@ app.include_router(trending.router, prefix="/api/trending", tags=["热门话题"
 app.include_router(viral_content.router, prefix="/api/viral", tags=["自媒体爆款"])
 app.include_router(assistant.router, prefix="/api/assistant", tags=["复盘大师Agent"])
 app.include_router(investment_calendar.router, prefix="/api/investment-calendar", tags=["投资日历"])
+app.include_router(wechat.router, prefix="", tags=["微信公众号搜索"])
 
 
 @app.get("/api/health")

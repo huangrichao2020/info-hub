@@ -47,6 +47,14 @@ def setup_scheduler():
         id="turn_strong",
         name="转强选股生成",
     )
+    # 公众号文章采集 - 每2小时
+    scheduler.add_job(
+        _collect_wechat_articles,
+        "interval",
+        hours=2,
+        id="wechat_articles",
+        name="公众号文章采集",
+    )
     logger.info("定时任务已配置完成")
 
 
@@ -89,3 +97,21 @@ async def _generate_turn_strong():
         logger.info("转强选股生成完成: %s 条", len(result.get("items") or []))
     except Exception as e:
         logger.error(f"转强选股生成失败: {e}")
+
+
+async def _collect_wechat_articles():
+    """采集微信公众号文章"""
+    try:
+        import asyncio
+        from database import get_db
+        from services.wechat_crawler import run_wechat_crawler
+
+        logger.info("开始采集微信公众号文章")
+        
+        # 获取数据库连接
+        with get_db() as db_conn:
+            result = await run_wechat_crawler(db_conn)
+            
+        logger.info(f"公众号文章采集完成: 爬取 {result.get('total_crawled', 0)} 篇, 保存 {result.get('total_saved', 0)} 篇")
+    except Exception as e:
+        logger.error(f"公众号文章采集失败: {e}")

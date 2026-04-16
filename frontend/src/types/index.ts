@@ -12,6 +12,7 @@ export type Section =
   | 'zt-analysis'
   | 'turn-strong'
   | 'review-report'
+  | 'wechat-search'
 
 export interface NewsItem {
   id: string
@@ -364,3 +365,50 @@ export interface CalendarResponse {
   events: CalendarEvent[]
   count: number
 }
+
+// 微信公众号搜索相关
+export interface WechatArticle {
+  id: number
+  title: string
+  summary?: string
+  url: string
+  author?: string
+  publish_date?: string
+  crawled_at: string
+  official_account_id: number
+  keywords?: Record<string, any>
+  account_name?: string
+  account_wechat_id?: string
+}
+
+export interface WechatSearchResponse {
+  total: number
+  page: number
+  page_size: number
+  pages: number
+  articles: WechatArticle[]
+}
+
+export interface WechatAccount {
+  id: number
+  name: string
+  wechat_id: string
+  description?: string
+  avatar_url?: string
+  article_count: number
+  status: string
+  updated_at?: string
+}
+
+export interface WechatTrendingTopic {
+  topic: string
+  count: number
+}
+
+export interface WechatStatistics {
+  total_articles: number
+  total_accounts: number
+  recent_articles_7d: number
+  category_stats: Record<string, number>
+}
+
