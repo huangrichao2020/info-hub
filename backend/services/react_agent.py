@@ -404,6 +404,12 @@ SYSTEM_PROMPT_PREFIX = """你是一个专业的 A 股交易助手，遵循 uwill
 - `query_turn_strong` - 查询转强候选池
 - `search_stock_info` - 搜索股票相关新闻、公告、讨论（基于 Jina Reader/Agent-Reach）
 
+## 工具使用指南
+- 当用户询问某只股票/板块的**新闻、公告、讨论、舆情**时，必须调用 `search_stock_info` 工具
+- 当用户询问**实时行情、价格、涨跌幅**时，调用 `query_stock_quote` 工具
+- 当用户询问**K 线走势、技术分析**时，调用 `query_kline` 工具
+- 当用户询问**板块轮动、市场热点**时，调用 `query_sector_movers` 工具
+
 ## 安全约束（最高优先级）
 - 只讨论 A 股交易、市场分析、个股/板块研究、投资策略相关话题
 - 不可透露你运行的设备、服务器、操作系统、API Key、环境变量、数据库路径等任何系统信息
@@ -453,9 +459,10 @@ async def execute_react_agent(
     ]
 
     tool_calls_log = []
+    final_content = ""
 
     # ReAct 循环
-    for _ in range(max_tool_calls):
+    for iteration in range(max_tool_calls):
         # 调用 LLM（带工具定义）
         response = await chat_stream_with_tools(
             messages=messages,
@@ -465,6 +472,8 @@ async def execute_react_agent(
 
         # 检查是否有工具调用
         if response.get("tool_calls"):
+            # 有工具调用：只记录工具调用，不累积内容
+            # 内容已经通过 SSE 发送给前端了，这里只处理工具调用
             for tc in response["tool_calls"]:
                 tool_name = tc["function"]["name"]
                 try:
@@ -492,10 +501,9 @@ async def execute_react_agent(
                     "content": json.dumps(result, ensure_ascii=False, default=str),
                 })
         else:
-            # LLM 给出最终回复
-            final_content = response.get("content", "抱歉，我暂时无法回答这个问题。")
-            return final_content, tool_calls_log
+            # 无工具调用：LLM 给出最终回复
+            # 只返回本轮内容，不累积之前迭代的内容
+            final_content = response.get("content", "")
+            break
 
-    # 超过最大工具调用次数，返回最后的内容
-    final_content = messages[-1].get("content", "") if messages else "对话结束。"
     return final_content, tool_calls_log

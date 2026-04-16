@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from fastapi.responses import StreamingResponse
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from llm.qwen_client import chat_stream
@@ -54,8 +54,8 @@ async def chat(req: ChatRequest):
 
 
 @router.get("/stream/{request_id}")
-async def stream(request_id: str):
-    """SSE 流式输出 - 基于内容长度追踪，避免重复发送"""
+async def stream(request_id: str, request: Request):
+    """SSE 流式输出 - 支持断线重连，避免重复发送"""
     from fastapi.responses import StreamingResponse
 
     async def event_generator():
@@ -64,23 +64,34 @@ async def stream(request_id: str):
             yield f"data: {json.dumps({'error': 'not found'}, ensure_ascii=False)}\n\n"
             return
 
+        # 获取客户端上次接收的事件 ID，支持断线重连
+        last_event_id = request.headers.get("last-event-id", "")
+        start_index = int(last_event_id) + 1 if last_event_id.isdigit() else 0
+
         max_wait = 120
         waited = 0
-        last_len = 0
+        chunk_index = start_index
+
         while waited < max_wait:
             if buffer.get("done"):
+                # 发送剩余未发送的 chunks
+                chunks = buffer.get("chunks", [])
+                while chunk_index < len(chunks):
+                    yield f"id: {chunk_index}\n"
+                    yield f"data: {json.dumps({'content': chunks[chunk_index]}, ensure_ascii=False)}\n\n"
+                    chunk_index += 1
                 yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
                 break
             if buffer.get("error"):
                 yield f"data: {json.dumps({'error': buffer['error']}, ensure_ascii=False)}\n\n"
                 break
 
-            # 基于累积内容长度追踪，只发送新增部分
-            full = "".join(buffer["chunks"])
-            if len(full) > last_len:
-                delta = full[last_len:]
-                last_len = len(full)
-                yield f"data: {json.dumps({'content': delta}, ensure_ascii=False)}\n\n"
+            # 只发送新增的 chunks
+            chunks = buffer.get("chunks", [])
+            while chunk_index < len(chunks):
+                yield f"id: {chunk_index}\n"
+                yield f"data: {json.dumps({'content': chunks[chunk_index]}, ensure_ascii=False)}\n\n"
+                chunk_index += 1
 
             await asyncio.sleep(0.05)
             waited += 0.05
@@ -92,7 +103,8 @@ async def stream(request_id: str):
 
 async def _execute_chat(request_id: str, user_message: str, use_react: bool = False):
     """后台执行 LLM 对话"""
-    buffer = _stream_buffers[request_id] = {"chunks": [], "done": False, "error": None}
+    from collections import deque
+    buffer = _stream_buffers[request_id] = {"chunks": deque(), "done": False, "error": None}
 
     try:
         from database import get_db
@@ -212,12 +224,16 @@ async def _execute_chat(request_id: str, user_message: str, use_react: bool = Fa
                 project_context=realtime_context + "\n\n" + project_context if project_context else realtime_context,
             )
 
+            # 将 ReAct 结果写入 buffer，让 SSE 流可以发送
+            buffer["chunks"].append(content)
+
             # 如果有工具调用历史，追加到回复末尾（调试信息）
             if tool_log:
                 tool_summary = "\n\n---\n**工具调用记录**\n" + "\n".join(
                     f"- {t['tool']}: {json.dumps(t['args'], ensure_ascii=False)}" for t in tool_log
                 )
                 content += tool_summary
+                buffer["chunks"].append(tool_summary)
 
         else:
             # === 原有模式：预加载上下文 + 单轮对话 ===
@@ -239,7 +255,7 @@ async def _execute_chat(request_id: str, user_message: str, use_react: bool = Fa
                 messages.append({"role": h["role"], "content": h["content"]})
             messages.append({"role": "user", "content": user_message})
 
-            # 流式调用 LLM
+            # 流式调用 LLM - 只写入 buffer，不直接 yield（避免 SSE 重复发送）
             full_content = []
             async for chunk in chat_stream(messages, max_tokens=2048):
                 full_content.append(chunk)

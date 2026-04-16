@@ -61,7 +61,8 @@ export function useAssistant(): UseAssistantReturn {
     // 创建占位助手消息
     setMessages(prev => [...prev, { role: 'assistant', content: '' }])
 
-    const body = JSON.stringify({ message: content.trim() })
+    // 启用 ReAct Agent 模式，让 LLM 可以使用工具（搜索、行情查询等）
+    const body = JSON.stringify({ message: content.trim(), use_react: true })
 
     fetch('/api/assistant/chat', {
       method: 'POST',

@@ -148,7 +148,9 @@ async def chat_stream_with_tools(
                 except (json.JSONDecodeError, KeyError, IndexError):
                     continue
 
+    # 返回本轮调用的内容（不清除之前的累积，由调用方处理）
+    content_str = "".join(accumulated_content)
     return {
-        "content": "".join(accumulated_content),
+        "content": content_str,
         "tool_calls": tool_calls if tool_calls else None,
     }
