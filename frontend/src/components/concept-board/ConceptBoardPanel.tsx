@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import client from '../../api/client'
 import LoadingSkeleton from '../common/LoadingSkeleton'
@@ -58,6 +58,7 @@ export default function ConceptBoardPanel() {
   const [run, setRun] = useState<TurnStrongRun | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeGroup, setActiveGroup] = useState('')
+  const detailRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -66,6 +67,13 @@ export default function ConceptBoardPanel() {
       .catch(() => setRun(null))
       .finally(() => setLoading(false))
   }, [])
+
+  // 点击板块后滚动到详情区域
+  useEffect(() => {
+    if (activeGroup && detailRef.current) {
+      detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [activeGroup])
 
   const groups = useMemo(() => {
     const items = run?.items || []
@@ -151,7 +159,7 @@ export default function ConceptBoardPanel() {
       </section>
 
       {selected && (
-        <section style={{ borderRadius: 20, padding: 20, background: 'rgba(15,23,42,.56)', border: '1px solid rgba(148,163,184,.12)' }}>
+        <section ref={detailRef} style={{ borderRadius: 20, padding: 20, background: 'rgba(15,23,42,.56)', border: '1px solid rgba(148,163,184,.12)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: '.82em', color: selected.grade.color, fontWeight: 700 }}>概念详情</div>

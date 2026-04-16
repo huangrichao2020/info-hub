@@ -16,6 +16,7 @@ from services.assistant_memory import (
 from services.assistant_prompt import build_assistant_system_prompt, build_context_for_question
 from services.market_service import get_quotes, get_index_snapshot, get_sector_movers
 from services.turn_strong_service import get_turn_strong_today_or_latest
+from services.react_agent import execute_react_agent, init_tools
 
 router = APIRouter()
 
@@ -25,6 +26,7 @@ _stream_buffers: dict[str, dict] = {}
 
 class ChatRequest(BaseModel):
     message: str
+    use_react: bool = False  # 可选启用 ReAct Agent 模式
 
 
 class MemoryRequest(BaseModel):
@@ -36,6 +38,7 @@ class MemoryRequest(BaseModel):
 @router.on_event("startup")
 async def startup():
     init_assistant_tables()
+    init_tools()  # 初始化 ReAct 工具
 
 
 @router.post("/chat")
@@ -45,14 +48,14 @@ async def chat(req: ChatRequest):
     add_history("user", req.message)
 
     # 后台执行对话生成
-    asyncio.create_task(_execute_chat(request_id, req.message))
+    asyncio.create_task(_execute_chat(request_id, req.message, use_react=req.use_react))
 
     return {"request_id": request_id}
 
 
 @router.get("/stream/{request_id}")
 async def stream(request_id: str):
-    """SSE 流式输出"""
+    """SSE 流式输出 - 基于内容长度追踪，避免重复发送"""
     from fastapi.responses import StreamingResponse
 
     async def event_generator():
@@ -61,9 +64,9 @@ async def stream(request_id: str):
             yield f"data: {json.dumps({'error': 'not found'}, ensure_ascii=False)}\n\n"
             return
 
-        # 等待数据产生
-        max_wait = 120  # 2分钟超时
+        max_wait = 120
         waited = 0
+        last_len = 0
         while waited < max_wait:
             if buffer.get("done"):
                 yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
@@ -72,22 +75,22 @@ async def stream(request_id: str):
                 yield f"data: {json.dumps({'error': buffer['error']}, ensure_ascii=False)}\n\n"
                 break
 
-            # 推送累积的内容
-            if buffer.get("chunks"):
-                for chunk in buffer["chunks"]:
-                    yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
-                buffer["chunks"] = []
+            # 基于累积内容长度追踪，只发送新增部分
+            full = "".join(buffer["chunks"])
+            if len(full) > last_len:
+                delta = full[last_len:]
+                last_len = len(full)
+                yield f"data: {json.dumps({'content': delta}, ensure_ascii=False)}\n\n"
 
-            await asyncio.sleep(0.1)
-            waited += 0.1
+            await asyncio.sleep(0.05)
+            waited += 0.05
 
-        # 清理
         _stream_buffers.pop(request_id, None)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-async def _execute_chat(request_id: str, user_message: str):
+async def _execute_chat(request_id: str, user_message: str, use_react: bool = False):
     """后台执行 LLM 对话"""
     buffer = _stream_buffers[request_id] = {"chunks": [], "done": False, "error": None}
 
@@ -199,32 +202,52 @@ async def _execute_chat(request_id: str, user_message: str):
             "project_context": project_context,
         }
 
-        # 动态注入上下文
-        realtime_context = build_context_for_question(user_message, market_data)
+        if use_react:
+            # === ReAct Agent 模式 ===
+            realtime_context = build_context_for_question(user_message, market_data)
+            content, tool_log = await execute_react_agent(
+                user_message=user_message,
+                history_text=history_text,
+                memory_text=memory_text,
+                project_context=realtime_context + "\n\n" + project_context if project_context else realtime_context,
+            )
 
-        # 构建系统提示词
-        system_prompt = build_assistant_system_prompt(
-            recent_history=history_text,
-            memories=memory_text,
-            realtime_context=realtime_context + "\n\n" + project_context if project_context else realtime_context,
-        )
+            # 如果有工具调用历史，追加到回复末尾（调试信息）
+            if tool_log:
+                tool_summary = "\n\n---\n**工具调用记录**\n" + "\n".join(
+                    f"- {t['tool']}: {json.dumps(t['args'], ensure_ascii=False)}" for t in tool_log
+                )
+                content += tool_summary
 
-        # 构建消息列表
-        messages = [
-            {"role": "system", "content": system_prompt},
-        ]
-        for h in history[-4:]:
-            messages.append({"role": h["role"], "content": h["content"]})
-        messages.append({"role": "user", "content": user_message})
+        else:
+            # === 原有模式：预加载上下文 + 单轮对话 ===
+            # 动态注入上下文
+            realtime_context = build_context_for_question(user_message, market_data)
 
-        # 流式调用 LLM
-        full_content = []
-        async for chunk in chat_stream(messages, max_tokens=2048):
-            full_content.append(chunk)
-            buffer["chunks"].append(chunk)
+            # 构建系统提示词
+            system_prompt = build_assistant_system_prompt(
+                recent_history=history_text,
+                memories=memory_text,
+                realtime_context=realtime_context + "\n\n" + project_context if project_context else realtime_context,
+            )
+
+            # 构建消息列表
+            messages = [
+                {"role": "system", "content": system_prompt},
+            ]
+            for h in history[-4:]:
+                messages.append({"role": h["role"], "content": h["content"]})
+            messages.append({"role": "user", "content": user_message})
+
+            # 流式调用 LLM
+            full_content = []
+            async for chunk in chat_stream(messages, max_tokens=2048):
+                full_content.append(chunk)
+                buffer["chunks"].append(chunk)
+
+            content = "".join(full_content)
 
         # 保存助手回复
-        content = "".join(full_content)
         add_history("assistant", content)
 
         # 检测"记住"指令

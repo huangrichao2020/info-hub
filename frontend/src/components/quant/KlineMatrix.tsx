@@ -130,7 +130,7 @@ function KlineChart({ title, series }: { title: string; series?: QuantKlineSerie
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
         <div style={{ fontSize: '.72em', color: 'var(--color-dim)' }}>最高：<span style={{ color: 'var(--color-text)' }}>{formatPrice(summary.high)}</span></div>
         <div style={{ fontSize: '.72em', color: 'var(--color-dim)' }}>最低：<span style={{ color: 'var(--color-text)' }}>{formatPrice(summary.low)}</span></div>
-        <div style={{ fontSize: '.72em', color: 'var(--color-dim)' }}>K线数：<span style={{ color: 'var(--color-text)' }}>{series?.count ?? 0}</span></div>
+        <div style={{ fontSize: '.72em', color: 'var(--color-dim)' }}>K 线数：<span style={{ color: 'var(--color-text)' }}>{series?.count ?? 0}</span></div>
       </div>
     </div>
   )
@@ -168,7 +168,7 @@ export default function KlineMatrix({
           <div style={{ fontSize: '.78em', color: 'var(--color-accent)', fontWeight: 700 }}>量价走势面板</div>
           <h3 style={{ marginTop: 6, fontSize: '1.24em' }}>{stock.name} {stock.code}</h3>
           <div style={{ marginTop: 6, color: 'var(--color-dim)', fontSize: '.8em' }}>
-            点击下方卡片可切换个股；这里同时展示分钟、15分、小时、日K。
+            点击下方卡片可切换个股；这里展示小时、日 K 走势。
           </div>
         </div>
         <div style={{ fontSize: '.8em', color: 'var(--color-dim)' }}>
@@ -190,8 +190,6 @@ export default function KlineMatrix({
 
       {!loading && !error && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-          <KlineChart title="分钟走势" series={data?.series?.minute} />
-          <KlineChart title="15 分走势" series={data?.series?.fifteen_minute} />
           <KlineChart title="小时走势" series={data?.series?.hour} />
           <KlineChart title="日 K 走势" series={data?.series?.day} />
         </div>

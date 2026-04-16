@@ -2,7 +2,11 @@
 Info-Hub FastAPI 入口
 """
 import logging
+import sys
 from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,10 +14,27 @@ import config  # noqa: F401  触发 sys.path 注入和环境变量加载
 from database import init_db
 from scheduler import scheduler, setup_scheduler
 
+# ===== 日志配置 =====
+LOG_DIR = Path.home() / ".info-hub" / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+LOG_FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    format=LOG_FORMAT,
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        RotatingFileHandler(
+            LOG_DIR / "info-hub.log",
+            maxBytes=10 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",
+        ),
+    ],
 )
+
+logger = logging.getLogger("info-hub")
 
 
 @asynccontextmanager
@@ -22,10 +43,11 @@ async def lifespan(app: FastAPI):
     init_db()
     setup_scheduler()
     scheduler.start()
-    logging.getLogger("info-hub").info("Info-Hub 启动完成")
+    logger.info("Info-Hub 启动完成 | 日志目录: %s", LOG_DIR)
     yield
     # 关闭
     scheduler.shutdown()
+    logger.info("Info-Hub 已关闭")
 
 
 app = FastAPI(
@@ -65,7 +87,42 @@ app.include_router(investment_calendar.router, prefix="/api/investment-calendar"
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "service": "info-hub"}
+    """增强健康检查：数据库 + 定时任务状态"""
+    from database import get_db
+
+    checks = {"status": "ok", "service": "info-hub", "version": "2.3"}
+
+    # 检查数据库
+    try:
+        with get_db() as conn:
+            conn.execute("SELECT 1")
+        checks["database"] = "ok"
+    except Exception as exc:
+        checks["database"] = f"error: {exc}"
+        checks["status"] = "degraded"
+
+    # 检查定时任务
+    try:
+        jobs = scheduler.get_jobs()
+        checks["scheduler"] = {
+            "running": scheduler.running,
+            "job_count": len(jobs),
+        }
+    except Exception as exc:
+        checks["scheduler"] = f"error: {exc}"
+        checks["status"] = "degraded"
+
+    # 检查日志目录
+    try:
+        log_file = LOG_DIR / "info-hub.log"
+        checks["logging"] = {
+            "log_dir": str(LOG_DIR),
+            "log_exists": log_file.exists(),
+        }
+    except Exception as exc:
+        checks["logging"] = f"error: {exc}"
+
+    return checks
 
 
 @app.get("/")

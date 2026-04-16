@@ -208,6 +208,7 @@ def normalize_turn_strong_candidates(screen_payload: dict[str, Any]) -> dict[str
     items: list[dict[str, Any]] = []
     for row in rows:
         board_key = _find_key(row, "010000_CUSTOM_TRADEMARKET_TRADEMARKET_")
+        raw_concept = row.get("STYLE_CONCEPT", "")
         item = {
             "rank": int(float(row.get("SERIAL", 0) or 0)),
             "code": row.get("SECURITY_CODE", ""),
@@ -216,7 +217,7 @@ def normalize_turn_strong_candidates(screen_payload: dict[str, Any]) -> dict[str
             "screen": {
                 "board": row.get(board_key, "") if board_key else "",
                 "industry": row.get("INDUSTRY", "") or row.get("SW_INDUSTRY", "") or row.get("010000_RPT_F10_ORG_BASICINFO_BOARD_NAME_TOTAL_BOARD_NAME_TOTAL_", ""),
-                "style_concept": row.get("STYLE_CONCEPT", ""),
+                "style_concept": _clean_concept_field(raw_concept),
                 "previous_profit_ratio": _to_float(row.get(previous_profit_key, "")) if previous_profit_key else None,
                 "current_profit_ratio": _to_float(row.get(current_profit_key, "")) if current_profit_key else None,
                 "auction_volume_ratio": _to_float(row.get(auction_volume_key, "")) if auction_volume_key else None,
@@ -447,6 +448,29 @@ def _pick_by_contains(row: dict[str, Any], tokens: list[str]) -> Any:
     return None
 
 
+def _clean_concept_field(value) -> str:
+    """清洗概念字段，去除 ['xxx'] 或 "['xxx', 'yyy']" 格式，返回纯文本
+
+    示例:
+        "['物业管理']" -> "物业管理"
+        "['物业管理', '航空装备']" -> "物业管理、航空装备"
+        "['统一大市场']" -> "统一大市场"
+        None/"" -> ""
+    """
+    if not value:
+        return ""
+    text = str(value).strip()
+    # 匹配 ['xxx'] 或 ['xxx', 'yyy'] 格式
+    if text.startswith("[") and text.endswith("]"):
+        inner = text[1:-1]
+        # 提取所有引号内的内容
+        parts = re.findall(r"['\"]([^'\"]+)['\"]", inner)
+        if parts:
+            return "、".join(parts)
+    # 如果不是列表格式，直接返回
+    return text
+
+
 def _normalize_iwencai_candidates(payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows = payload.get("datas") or []
     normalized: list[dict[str, Any]] = []
@@ -456,7 +480,9 @@ def _normalize_iwencai_candidates(payload: dict[str, Any]) -> list[dict[str, Any
         if not code or not name:
             continue
         industry = _pick_first(row, ["所属同花顺行业", "所属行业", "行业", "申万一级行业"])
-        concept = _pick_first(row, ["所属概念", "概念", "概念板块"])
+        raw_concept = _pick_first(row, ["所属概念", "概念", "概念板块"])
+        # 清洗概念字段：去除 ['xxx'] 或 "['xxx', 'yyy']" 格式
+        concept = _clean_concept_field(raw_concept)
         latest_price = _pick_first(row, ["最新价", "现价", "收盘价"])
         auction_change = _pick_by_contains(row, ["竞价", "涨跌幅"]) or _pick_first(row, ["今日高开幅度", "高开幅度"])
         auction_volume_ratio = _pick_by_contains(row, ["竞价", "量比"]) or _pick_first(row, ["量比"])
@@ -694,6 +720,83 @@ def _build_validation_row(item: dict[str, Any], next_bar: dict[str, Any] | None)
     }
 
 
+def _analyze_failures(fail_rows: list[dict], all_items: list[dict]) -> dict[str, Any]:
+    """失败样本归因分析
+
+    分析失败/走弱样本的共同特征，帮助优化转强选股策略。
+    """
+    if not fail_rows:
+        return {"count": 0, "patterns": [], "summary": "无失败样本，策略表现良好。"}
+
+    fail_codes = {r["code"] for r in fail_rows}
+
+    # 1. 板块分布分析
+    industry_counts: dict[str, int] = {}
+    style_counts: dict[str, int] = {}
+    for item in all_items:
+        if item.get("code") in fail_codes:
+            screen = item.get("screen") or {}
+            industry = screen.get("industry", "未知")
+            style = screen.get("style_concept", "未知")
+            industry_counts[industry] = industry_counts.get(industry, 0) + 1
+            style_counts[style] = style_counts.get(style, 0) + 1
+
+    # 2. 跌幅分布
+    close_changes = [r["close_change_pct"] for r in fail_rows if r["close_change_pct"] is not None]
+    avg_fail_drop = round(sum(close_changes) / len(close_changes), 2) if close_changes else 0.0
+    max_fail_drop = round(min(close_changes), 2) if close_changes else 0.0
+
+    # 3. 常见失败模式
+    patterns = []
+
+    # 模式 A: 板块集中失效（某板块多只票同时失败）
+    for industry, count in sorted(industry_counts.items(), key=lambda x: -x[1]):
+        if count >= 2:
+            patterns.append({
+                "type": "板块集中失效",
+                "detail": f"{industry} 板块 {count} 只票失败",
+                "severity": "high" if count >= 3 else "medium",
+            })
+
+    # 模式 B: 大幅下跌（跌幅 > 5%）
+    deep_fails = [r for r in fail_rows if r.get("close_change_pct") is not None and r["close_change_pct"] <= -5]
+    if deep_fails:
+        patterns.append({
+            "type": "大幅下跌",
+            "detail": f"{len(deep_fails)} 只票跌幅超过 5%，可能存在突发利空或资金出逃",
+            "severity": "high",
+        })
+
+    # 模式 C: 冲高大幅回落（max_gain 高但 close 低）
+    gap_down = [r for r in fail_rows if r.get("max_gain_pct") is not None and r.get("close_change_pct") is not None
+                and r["max_gain_pct"] - r["close_change_pct"] > 5]
+    if gap_down:
+        patterns.append({
+            "type": "冲高回落",
+            "detail": f"{len(gap_down)} 只票盘中冲高但收盘大幅回落，承接力不足",
+            "severity": "medium",
+        })
+
+    # 4. 构建归因总结
+    summary_parts = [f"共 {len(fail_rows)} 只票失败（fail + weak）。"]
+    if patterns:
+        summary_parts.append("主要失败模式：")
+        for i, p in enumerate(patterns, 1):
+            summary_parts.append(f"{i}. {p['detail']}")
+    else:
+        summary_parts.append("失败较为分散，无明显共性特征。")
+
+    return {
+        "count": len(fail_rows),
+        "avg_fail_drop_pct": avg_fail_drop,
+        "max_fail_drop_pct": max_fail_drop,
+        "industry_distribution": dict(sorted(industry_counts.items(), key=lambda x: -x[1])[:5]),
+        "style_distribution": dict(sorted(style_counts.items(), key=lambda x: -x[1])[:5]),
+        "patterns": patterns,
+        "summary": " ".join(summary_parts),
+    }
+
+
 def _merge_live_quotes(items: list[dict[str, Any]], quotes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     quote_map = {quote.get("code"): quote for quote in quotes}
     merged: list[dict[str, Any]] = []
@@ -873,7 +976,19 @@ def _serialize_run_row(row: Any) -> dict[str, Any]:
     data = dict(row)
     data["conditions"] = _loads_json(data.pop("conditions_json", ""), [])
     data["market_snapshot"] = _loads_json(data.pop("market_snapshot_json", ""), {})
-    data["items"] = _loads_json(data.pop("candidates_json", ""), [])
+    raw_items = _loads_json(data.pop("candidates_json", ""), [])
+    # 清洗历史数据中的概念/行业字段（去除 ['xxx'] 格式）
+    data["items"] = [
+        {
+            **item,
+            "screen": {
+                **(item.get("screen") or {}),
+                "style_concept": _clean_concept_field((item.get("screen") or {}).get("style_concept", "")),
+                "industry": _clean_concept_field((item.get("screen") or {}).get("industry", "")),
+            },
+        }
+        for item in raw_items
+    ]
     data["overall_analysis"] = _loads_json(data.pop("overall_analysis_json", ""), {})
     data["key_pool"] = get_mx_key_pool_summary(data.get("trade_date") or _today_cn())
     return data
@@ -1117,19 +1232,32 @@ async def build_turn_strong_validation(trade_date: str) -> dict[str, Any]:
         return _build_validation_row(item, next_bar)
 
     rows = await asyncio.gather(*(fetch_next_bar(item) for item in (run.get("items") or [])))
+
+    # === 基础统计 ===
     success_count = sum(1 for row in rows if row["verdict"] == "success")
     fail_count = sum(1 for row in rows if row["verdict"] == "fail")
+    weak_count = sum(1 for row in rows if row["verdict"] == "weak")
+    flat_count = sum(1 for row in rows if row["verdict"] == "flat")
+    insufficient_count = sum(1 for row in rows if row["verdict"] == "insufficient")
+    total_verifiable = len([r for r in rows if r["verdict"] != "insufficient"])
+
+    # 成功率（基于可验证的样本）
+    success_rate = round(success_count / max(1, total_verifiable) * 100, 1) if total_verifiable > 0 else 0.0
+
+    # 平均涨跌幅
+    verifiable_rows = [r for r in rows if r["close_change_pct"] is not None]
     avg_close = round(
-        sum(row["close_change_pct"] for row in rows if row["close_change_pct"] is not None) /
-        max(1, len([row for row in rows if row["close_change_pct"] is not None])),
+        sum(row["close_change_pct"] for row in verifiable_rows) / len(verifiable_rows),
         2,
-    ) if rows else 0.0
+    ) if verifiable_rows else 0.0
+
     avg_max = round(
         sum(row["max_gain_pct"] for row in rows if row["max_gain_pct"] is not None) /
         max(1, len([row for row in rows if row["max_gain_pct"] is not None])),
         2,
     ) if rows else 0.0
 
+    # 最佳/最差
     winner = max(
         rows,
         key=lambda row: row["max_gain_pct"] if row["max_gain_pct"] is not None else float("-inf"),
@@ -1141,17 +1269,37 @@ async def build_turn_strong_validation(trade_date: str) -> dict[str, Any]:
         default=None,
     )
 
+    # === 失败样本归因分析 ===
+    fail_items = [r for r in rows if r["verdict"] in ("fail", "weak")]
+    failure_analysis = _analyze_failures(fail_items, run.get("items", []))
+
+    # === Verdict 分布 ===
+    verdict_distribution = {
+        "success": success_count,
+        "fail": fail_count,
+        "weak": weak_count,
+        "flat": flat_count,
+        "insufficient": insufficient_count,
+    }
+
     return _cache_set(cache_key, {
         "status": "ready",
         "trade_date": trade_date,
         "summary": {
             "count": len(rows),
+            "total_verifiable": total_verifiable,
             "success_count": success_count,
             "fail_count": fail_count,
+            "weak_count": weak_count,
+            "flat_count": flat_count,
+            "insufficient_count": insufficient_count,
+            "success_rate_pct": success_rate,
             "avg_close_change_pct": avg_close,
             "avg_max_gain_pct": avg_max,
             "best": winner,
             "worst": loser,
+            "verdict_distribution": verdict_distribution,
+            "failure_analysis": failure_analysis,
         },
         "items": rows,
     })

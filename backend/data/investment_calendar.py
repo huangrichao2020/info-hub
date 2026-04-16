@@ -1,7 +1,19 @@
-"""投资日历事件数据 - A股重要会议/政策/经济数据发布日程"""
+"""投资日历事件数据 - A股重要会议/政策/经济数据发布日程
+
+支持多数据源聚合：
+1. 静态事件库（硬编码的固定事件）
+2. 动态事件（可通过 API 拉取的外部数据源）
+"""
 from __future__ import annotations
 
-INVESTMENT_CALENDAR = [
+import logging
+from datetime import datetime, timedelta
+
+logger = logging.getLogger("info-hub.investment-calendar")
+
+# ===== 静态事件库 =====
+# 固定事件：两会、财报季、固定经济数据发布日等
+INVESTMENT_CALENDAR_STATIC = [
     # ===== 2026年4月 =====
     {
         "date": "2026-04-15",
@@ -429,3 +441,102 @@ INVESTMENT_CALENDAR = [
         "leading_stocks": [],
     },
 ]
+
+
+# ===== 动态事件生成 =====
+
+async def fetch_dynamic_events() -> list[dict]:
+    """从外部 API 获取动态投资日历事件
+
+    当前为占位实现，返回空列表。
+    后续可接入金十数据/华尔街见闻等 API。
+
+    返回格式与静态事件一致。
+    """
+    # TODO: 接入外部 API
+    # 示例：金十数据日历 API
+    # url = "https://cdn.jin10.com/data_center/calender..."
+    # 解析返回数据，转换为标准格式
+    return []
+
+
+# ===== 聚合查询 =====
+
+def get_events(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    level: str | None = None,
+    event_type: str | None = None,
+) -> list[dict]:
+    """获取聚合后的投资日历事件
+
+    参数:
+        start_date: 开始日期 YYYY-MM-DD，默认今天
+        end_date: 结束日期 YYYY-MM-DD，默认 +90 天
+        level: 按级别过滤 major/moderate/minor
+        event_type: 按类型过滤 meeting/policy/economic_data/earnings/market
+
+    返回:
+        排序后的事件列表
+    """
+    if start_date is None:
+        start_date = datetime.now().strftime("%Y-%m-%d")
+    if end_date is None:
+        end_date = (datetime.now() + timedelta(days=90)).strftime("%Y-%m-%d")
+
+    # 过滤静态事件
+    events = []
+    for event in INVESTMENT_CALENDAR_STATIC:
+        if not (start_date <= event["date"] <= end_date):
+            continue
+        if level and event["level"] != level:
+            continue
+        if event_type and event["type"] != event_type:
+            continue
+        events.append({**event, "source": "static"})
+
+    # 按日期排序
+    events.sort(key=lambda x: x["date"])
+    return events
+
+
+async def get_all_events(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    level: str | None = None,
+    event_type: str | None = None,
+) -> list[dict]:
+    """获取全部事件（含动态 API 拉取）"""
+    events = get_events(start_date, end_date, level, event_type)
+
+    # 尝试获取动态事件
+    try:
+        dynamic = await fetch_dynamic_events()
+        for event in dynamic:
+            if start_date and event["date"] < start_date:
+                continue
+            if end_date and event["date"] > end_date:
+                continue
+            if level and event["level"] != level:
+                continue
+            if event_type and event["type"] != event_type:
+                continue
+            event["source"] = "dynamic"
+            events.append(event)
+    except Exception as exc:
+        logger.warning("获取动态投资日历事件失败: %s", exc)
+
+    # 按日期排序
+    events.sort(key=lambda x: x["date"])
+    return events
+
+
+def get_event_types() -> list[dict]:
+    """获取事件类型元数据"""
+    return [
+        {"value": "meeting", "label": "重要会议", "color": "var(--color-purple)"},
+        {"value": "policy", "label": "政策发布", "color": "var(--color-accent)"},
+        {"value": "economic_data", "label": "经济数据", "color": "var(--color-gold)"},
+        {"value": "earnings", "label": "财报披露", "color": "var(--color-orange)"},
+        {"value": "market", "label": "市场事件", "color": "var(--color-blue)"},
+    ]

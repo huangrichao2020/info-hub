@@ -13,6 +13,7 @@ from services.turn_strong_service import (
     _merge_candidate_sources,
     _normalize_iwencai_candidates,
     normalize_turn_strong_candidates,
+    _clean_concept_field,
 )
 
 
@@ -220,6 +221,33 @@ class TurnStrongServiceTests(unittest.TestCase):
         self.assertIn("market_summary", payload)
         self.assertEqual(len(payload["analyses"]), 1)
         self.assertIn("raw_text", payload)
+
+    # ===== 概念字段清洗测试 =====
+
+    def test_clean_concept_field_removes_brackets(self):
+        """应该去除 ['xxx'] 格式"""
+        self.assertEqual(_clean_concept_field("['物业管理']"), "物业管理")
+        self.assertEqual(_clean_concept_field("['统一大市场']"), "统一大市场")
+        self.assertEqual(_clean_concept_field("['航空发动机']"), "航空发动机")
+
+    def test_clean_concept_field_handles_multiple(self):
+        """应该处理多个概念"""
+        self.assertEqual(_clean_concept_field("['物业管理', '航空装备']"), "物业管理、航空装备")
+
+    def test_clean_concept_field_handles_double_quotes(self):
+        """应该处理双引号格式"""
+        self.assertEqual(_clean_concept_field('["物业管理"]'), "物业管理")
+
+    def test_clean_concept_field_passes_through_plain_text(self):
+        """纯文本应该直接返回"""
+        self.assertEqual(_clean_concept_field("物业管理"), "物业管理")
+        self.assertEqual(_clean_concept_field("航空发动机"), "航空发动机")
+
+    def test_clean_concept_field_handles_empty(self):
+        """空值应该返回空字符串"""
+        self.assertEqual(_clean_concept_field(None), "")
+        self.assertEqual(_clean_concept_field(""), "")
+        self.assertEqual(_clean_concept_field("  "), "")
 
 
 if __name__ == "__main__":
