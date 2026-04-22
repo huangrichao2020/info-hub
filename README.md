@@ -1,5 +1,7 @@
 # Info-Hub
 
+![Social Preview](social-preview.png)
+
 `info-hub` 现在是一个 **定制版 `uwillberich` 交易工作台**，核心只做两件事：
 
 - `交易复盘`
