@@ -55,6 +55,14 @@ def setup_scheduler():
         id="wechat_articles",
         name="公众号文章采集",
     )
+    # 住相信号记录 - 每30分钟
+    scheduler.add_job(
+        _record_obsession_signals,
+        "interval",
+        minutes=30,
+        id="obsession_signals",
+        name="住相信号记录",
+    )
     logger.info("定时任务已配置完成")
 
 
@@ -115,3 +123,19 @@ async def _collect_wechat_articles():
         logger.info(f"公众号文章采集完成: 爬取 {result.get('total_crawled', 0)} 篇, 保存 {result.get('total_saved', 0)} 篇")
     except Exception as e:
         logger.error(f"公众号文章采集失败: {e}")
+
+
+async def _record_obsession_signals():
+    """每30分钟记录一次住相信号状态到历史表"""
+    try:
+        from routers.obsession_phase import _evaluate_signals, _build_response, _record_to_history
+
+        signals = await _evaluate_signals()
+        response = _build_response(signals)
+        await _record_to_history(response)
+
+        logger.info(
+            f"住相信号记录完成: {response['signal_count']} 个信号触发, 阶段={response['phase_label']}"
+        )
+    except Exception as e:
+        logger.error(f"住相信号记录失败: {e}")

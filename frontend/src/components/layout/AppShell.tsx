@@ -21,6 +21,7 @@ const PANELS = {
   'turn-strong': lazy(() => import('../turn-strong/TurnStrongPanel')),
   'review-report': lazy(() => import('../review-report/ReviewPanel')),
   'wechat-search': lazy(() => import('../wechat-search/WechatSearchPanel')),
+  'obsession-phase': lazy(() => import('../obsession-phase/ObsessionPhasePanel')),
 }
 
 export default function AppShell() {

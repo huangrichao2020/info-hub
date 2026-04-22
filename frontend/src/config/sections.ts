@@ -11,6 +11,7 @@ import {
   CandlestickChart,
   CalendarDays,
   MessageCircle,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -153,6 +154,15 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: MessageCircle,
     group: 'content',
   },
+  'obsession-phase': {
+    key: 'obsession-phase',
+    label: '住相信号',
+    shortLabel: '住相',
+    description: '执念→住相→破裂信号链可视化，辅助判断买卖时机。',
+    dotColor: 'var(--color-red)',
+    icon: AlertTriangle,
+    group: 'core',
+  },
 }
 
 export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: string }[] = [
@@ -177,4 +187,5 @@ export const SECTION_ORDER: Section[] = [
   'trending',
   'article-gen',
   'wechat-search',
+  'obsession-phase',
 ]

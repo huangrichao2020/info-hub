@@ -156,6 +156,19 @@ CREATE INDEX IF NOT EXISTS idx_keywords_word ON keywords(word);
 CREATE INDEX IF NOT EXISTS idx_keywords_category ON keywords(category);
 CREATE INDEX IF NOT EXISTS idx_article_keywords_article_id ON article_keywords(article_id);
 CREATE INDEX IF NOT EXISTS idx_article_keywords_keyword_id ON article_keywords(keyword_id);
+
+-- 住相信号历史记录表
+CREATE TABLE IF NOT EXISTS obsession_signals_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recorded_at TEXT NOT NULL,
+    current_phase TEXT NOT NULL,
+    phase_label TEXT NOT NULL,
+    signal_count INTEGER DEFAULT 0,
+    signals_json TEXT NOT NULL,
+    action_suggestion TEXT,
+    market_snapshot_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_obsession_history_recorded ON obsession_signals_history(recorded_at DESC);
 """
 
 

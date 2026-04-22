@@ -13,6 +13,7 @@ export type Section =
   | 'turn-strong'
   | 'review-report'
   | 'wechat-search'
+  | 'obsession-phase'
 
 export interface NewsItem {
   id: string
@@ -410,5 +411,22 @@ export interface WechatStatistics {
   total_accounts: number
   recent_articles_7d: number
   category_stats: Record<string, number>
+}
+
+export interface ObsessionSignal {
+  name: string
+  label: string
+  triggered: boolean
+  description: string
+}
+
+export interface ObsessionPhaseStatus {
+  current_phase: string
+  phase_label: string
+  phase_description: string
+  signals: ObsessionSignal[]
+  signal_count: number
+  action_suggestion: string
+  last_updated: string
 }
 
