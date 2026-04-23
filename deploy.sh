@@ -17,7 +17,7 @@ git reset --hard origin/main
 
 COMMIT=$(git rev-parse --short HEAD)
 TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "no-tag")
-DATE=$(git log -1 --format='%Y-%m-%d %H:%M')
+DATE=$(git log -1 --format='%ci' | cut -d' ' -f1-2)
 
 echo "[deploy] version: $TAG @ $COMMIT ($DATE)"
 
