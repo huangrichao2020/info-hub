@@ -17,14 +17,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Setup SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.DEPLOY_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          script: |
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Deploy via SSH
+        run: |
+          echo "🔍 Connecting to ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PORT }}"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
             cd /home/deploy/info-hub
-            chmod +x deploy.sh
-            bash deploy.sh 2>&1
+            echo "📦 Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            echo "🏗️ Building frontend..."
+            cd frontend
+            npm install --silent 2>&1 | tail -3
+            npm run build 2>&1 | tail -5
+            
+            echo "🔄 Restarting backend..."
+            cd ../backend
+            source .venv/bin/activate
+            
+            if [ -f /tmp/info-hub-backend.pid ]; then
+              kill $(cat /tmp/info-hub-backend.pid) 2>/dev/null || true
+              sleep 2
+            fi
+            
+            nohup uvicorn main:app --host 0.0.0.0 --port 8001 --workers 1 > /tmp/info-hub-backend.log 2>&1 &
+            echo $! > /tmp/info-hub-backend.pid
+            sudo nginx -s reload
+            
+            echo "✅ Deployed successfully!"
+          EOF
