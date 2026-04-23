@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 import config  # noqa: F401  触发 sys.path 注入和环境变量加载
@@ -180,6 +180,39 @@ app.include_router(obsession_phase.router, prefix="/api/obsession-phase", tags=[
 app.include_router(stock_analysis.router, prefix="/api/stock", tags=["A股分析引擎"])
 app.include_router(wechat.router, prefix="", tags=["微信公众号搜索"])
 
+
+@app.post("/api/deploy")
+async def trigger_deploy(request: Request):
+    """Webhook 部署接口：GitHub CI 推送触发"""
+    import os
+    import asyncio
+    
+    # 校验 Secret
+    deploy_secret = os.environ.get("DEPLOY_SECRET", "9579235c8c26e23472a1ceb8d8b1063d")
+    auth = request.headers.get("X-Deploy-Secret", "")
+    if auth != deploy_secret:
+        return {"status": "error", "message": "Unauthorized"}
+    
+    # 异步执行部署脚本
+    async def run_deploy():
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "bash", "/home/deploy/info-hub/deploy.sh",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd="/home/deploy/info-hub"
+            )
+            stdout, stderr = await proc.communicate()
+            logger.info(f"Deploy exit code: {proc.returncode}")
+            if stdout:
+                logger.info(stdout.decode()[-1000:])  # 最后 1000 字符
+            if stderr:
+                logger.error(stderr.decode()[-1000:])
+        except Exception as e:
+            logger.error(f"Deploy failed: {e}")
+    
+    asyncio.create_task(run_deploy())
+    return {"status": "triggered", "message": "Deploy started"}
 
 @app.get("/api/health")
 async def health():

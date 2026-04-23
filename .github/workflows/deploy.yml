@@ -11,44 +11,19 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup SSH Agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
-
-      - name: Deploy via SSH
+      - name: Trigger Deploy Webhook
         run: |
-          echo "🔍 Connecting to ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PORT }}"
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            set -e
-            cd /home/deploy/info-hub
-            echo "📦 Pulling latest code..."
-            git fetch origin main
-            git reset --hard origin/main
-            
-            echo "🏗️ Building frontend..."
-            cd frontend
-            npm install --silent 2>&1 | tail -3
-            npm run build 2>&1 | tail -5
-            
-            echo "🔄 Restarting backend..."
-            cd ../backend
-            source .venv/bin/activate
-            
-            if [ -f /tmp/info-hub-backend.pid ]; then
-              kill $(cat /tmp/info-hub-backend.pid) 2>/dev/null || true
-              sleep 2
-            fi
-            
-            nohup uvicorn main:app --host 0.0.0.0 --port 8001 --workers 1 > /tmp/info-hub-backend.log 2>&1 &
-            echo $! > /tmp/info-hub-backend.pid
-            sudo nginx -s reload
-            
-            echo "✅ Deployed successfully!"
-          EOF
+          echo "🚀 Triggering deploy webhook..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.SERVER_URL }}/api/deploy" \
+            -H "Content-Type: application/json" \
+            -H "X-Deploy-Secret: ${{ secrets.DEPLOY_SECRET }}")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Deploy triggered successfully"
+          else
+            echo "❌ Failed to trigger deploy (HTTP $HTTP_CODE)"
+            exit 1
+          fi
