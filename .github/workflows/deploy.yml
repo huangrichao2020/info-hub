@@ -23,8 +23,8 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
+          port: ${{ secrets.SERVER_PORT }}
           script: |
-            cd /root/info-hub
+            cd /home/deploy/info-hub
             chmod +x deploy.sh
             bash deploy.sh 2>&1

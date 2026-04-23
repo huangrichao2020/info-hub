@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_DIR="/root/info-hub"
+APP_DIR="/home/deploy/info-hub"
 BACKEND_DIR="$APP_DIR/backend"
 FRONTEND_DIR="$APP_DIR/frontend"
 FRONTEND_DIST="/www/wwwroot/info-hub"
@@ -54,6 +54,7 @@ if [ -f "$PID_FILE" ]; then
         sleep 2
         kill -9 "$OLD_PID" 2>/dev/null || true
     fi
+    rm -f "$PID_FILE"
 fi
 
 nohup uvicorn main:app --host 0.0.0.0 --port $BACKEND_PORT --workers 1 > "$LOG_FILE" 2>&1 &
@@ -70,6 +71,6 @@ done
 
 # 重载 nginx
 echo "[deploy] reloading nginx..."
-nginx -s reload 2>/dev/null || true
+sudo nginx -s reload 2>/dev/null || echo "[warn] nginx reload failed"
 
 echo "[deploy] done! $TAG @ $COMMIT"
