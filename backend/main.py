@@ -112,6 +112,55 @@ app.add_middleware(
 # ── 注册路由 ──────────────────────────────────────────────
 from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis  # noqa: E402
 
+
+# ── 版本信息 ──────────────────────────────────────────────
+import json
+
+@app.get("/api/version")
+async def get_version():
+    """返回当前部署版本信息"""
+    import subprocess
+    import os
+    
+    version_info = {
+        "status": "ok",
+        "service": "info-hub",
+    }
+    
+    # 尝试从 version_info.json 读取（部署时写入）
+    version_file = os.path.join(os.path.dirname(__file__), "version_info.json")
+    if os.path.exists(version_file):
+        try:
+            with open(version_file) as f:
+                version_info.update(json.load(f))
+        except Exception:
+            pass
+    
+    # 尝试获取 git 信息
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=os.path.dirname(os.path.dirname(__file__)),
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+        version_info.setdefault("commit", commit)
+        
+        tag = subprocess.check_output(
+            ["git", "describe", "--tags", "--abbrev=0"],
+            cwd=os.path.dirname(os.path.dirname(__file__)),
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+        version_info.setdefault("version", tag)
+    except Exception:
+        pass
+    
+    version_info.setdefault("version", "dev")
+    version_info.setdefault("commit", "unknown")
+    
+    return version_info
+
+
+
 app.include_router(chan.router, prefix="/api/chan", tags=["日K缠论图"])
 app.include_router(evidence.router, prefix="/api/evidence", tags=["交易证据"])
 app.include_router(fin_news.router, prefix="/api/fin-news", tags=["财经新闻"])

@@ -10,7 +10,7 @@ import pandas as pd
 
 from services.stock_engine import get_engine
 
-router = APIRouter(prefix="/api/stock", tags=["A股分析"])
+router = APIRouter(prefix="", tags=["A股分析"])
 logger = logging.getLogger("info-hub.stock")
 
 engine = get_engine()

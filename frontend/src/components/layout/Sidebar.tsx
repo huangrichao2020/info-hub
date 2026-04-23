@@ -1,9 +1,25 @@
 import { PanelLeftClose, PanelLeft } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { SECTION_GROUPS, SECTION_META, SECTION_ORDER } from '../../config/sections'
+import { useEffect, useState } from 'react'
+import apiClient from '../../api/client'
+
+interface VersionInfo {
+  version: string
+  commit: string
+  date?: string
+  build_time?: string
+}
 
 export default function Sidebar() {
   const { activeSection, setSection, sidebarCollapsed, toggleSidebar } = useAppStore()
+  const [version, setVersion] = useState<VersionInfo | null>(null)
+
+  useEffect(() => {
+    apiClient.get<VersionInfo>('/version')
+      .then(r => setVersion(r.data))
+      .catch(() => {})
+  }, [])
 
   return (
     <aside
@@ -126,8 +142,22 @@ export default function Sidebar() {
         fontSize: '.72em',
         color: 'var(--color-dim)',
         textAlign: 'center',
+        lineHeight: 1.6,
       }}>
-        {!sidebarCollapsed && 'Info Hub v0.1'}
+        {!sidebarCollapsed && (
+          version ? (
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>
+                InfoHub {version.version !== 'dev' ? version.version : ''}
+              </div>
+              <div style={{ fontSize: '.9em', opacity: 0.7 }}>
+                {version.commit} · {version.date || ''}
+              </div>
+            </div>
+          ) : (
+            'Info Hub'
+          )
+        )}
       </div>
     </aside>
   )
