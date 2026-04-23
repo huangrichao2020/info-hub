@@ -63,6 +63,15 @@ def setup_scheduler():
         id="obsession_signals",
         name="住相信号记录",
     )
+    # 股票数据全量/增量更新 - 每日 02:00
+    scheduler.add_job(
+        _update_stock_data,
+        "cron",
+        hour=2,
+        minute=0,
+        id="stock_data_update",
+        name="A股历史数据同步",
+    )
     logger.info("定时任务已配置完成")
 
 
@@ -139,3 +148,16 @@ async def _record_obsession_signals():
         )
     except Exception as e:
         logger.error(f"住相信号记录失败: {e}")
+
+async def _update_stock_data():
+    """每日凌晨同步 A 股历史数据"""
+    try:
+        import asyncio
+        from services.stock_engine.dump_service import run_incremental_dump
+        
+        # Run in thread pool since baostock is synchronous
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, run_incremental_dump)
+        logger.info(f"A股数据同步完成: {result}")
+    except Exception as e:
+        logger.error(f"A股数据同步失败: {e}")
