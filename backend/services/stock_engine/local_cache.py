@@ -1,7 +1,7 @@
 """
 Local cache data provider.
 Reads pre-dumped Parquet files from the local disk.
-Calculates indicators: MA25, VolMA5, VolMA60, MACD(6,13,6).
+Calculates indicators: MA25, VolMA5, VolMA60, MACD(6,13,6), 压缩图CAN量比.
 """
 import os
 import pandas as pd
@@ -114,7 +114,43 @@ class LocalStockCache:
                 "DEA": float(dea.iloc[-1]),
                 "MACD": float(macd_val.iloc[-1])
             })
+        # 5. 压缩图CAN量比（25日均量，SQRT压缩）
+        elif "volume_ratio" in indicator or "can" in indicator or "liangbi" in indicator:
+            df['vol_ma_25'] = df['volume'].rolling(25).mean()
+            df['vol_ratio_pct'] = df['volume'] / df['vol_ma_25'] * 100
+            # SQRT压缩: 将量比映射到1-10的宽度等级
+            df['can_width'] = np.sqrt(df['vol_ratio_pct'] / 100.0) * 5
+            df['can_width'] = df['can_width'].clip(1, 10).round()
+            
+            vr = df['vol_ratio_pct'].iloc[-1]
+            cw = df['can_width'].iloc[-1]
+            
+            # 量价方向判断
+            close_chg = (df['close'].iloc[-1] / df['close'].iloc[-2] - 1) * 100 if len(df) > 1 else 0
+            
+            result.update({
+                "indicator": "压缩图CAN",
+                "volume_ratio": round(float(vr), 2),
+                "can_width": int(cw),
+                "close_change_pct": round(float(close_chg), 2),
+                "signal": _can_signal(vr, cw, close_chg)
+            })
+
         else:
             result.update({"error": "Unknown indicator"})
             
         return result
+
+
+def _can_signal(vol_ratio: float, can_width: float, close_chg: float) -> str:
+    """根据量比、宽度、涨跌判断量价信号"""
+    if close_chg > 0 and vol_ratio >= 150:
+        return "放量上涨"  # 红色粗柱，资金买入
+    elif close_chg > 0 and vol_ratio < 80:
+        return "缩量上涨"  # 细红线，无量空涨
+    elif close_chg < 0 and vol_ratio >= 150:
+        return "放量下跌"  # 青色粗柱，资金出逃
+    elif close_chg < 0 and vol_ratio < 80:
+        return "缩量下跌"  # 缩量调整
+    else:
+        return "量价平衡"

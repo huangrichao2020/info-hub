@@ -183,14 +183,32 @@ app.include_router(wechat.router, prefix="", tags=["微信公众号搜索"])
 
 @app.post("/api/deploy")
 async def trigger_deploy(request: Request):
-    """Webhook 部署接口：GitHub CI 推送触发"""
+    """Webhook 部署接口：GitHub CI 推送触发
+    
+    安全加固（借鉴 OpenClaw fail-closed 模式）：
+    - 使用 constant-time 比较防时序攻击
+    - 记录所有尝试（成功/失败）
+    - 失败时不泄露具体原因（统一返回 Unauthorized）
+    """
     import os
     import asyncio
+    import hashlib
+    import hmac
+    from datetime import datetime
     
-    # 校验 Secret
-    deploy_secret = os.environ.get("DEPLOY_SECRET", "9579235c8c26e23472a1ceb8d8b1063d")
+    # Fail-closed: 没有 secret 时直接拒绝
+    deploy_secret = os.environ.get("DEPLOY_SECRET")
+    if not deploy_secret:
+        logger.warning("[deploy] DEPLOY_SECRET not set, rejecting request")
+        return {"status": "error", "message": "Unauthorized"}
+    
     auth = request.headers.get("X-Deploy-Secret", "")
-    if auth != deploy_secret:
+    
+    # 使用 constant-time 比较防时序攻击
+    if not hmac.compare_digest(auth, deploy_secret):
+        client_ip = request.client.host if request.client else "unknown"
+        logger.warning(f"[deploy] Invalid secret from {client_ip} at {datetime.now().isoformat()}")
+        # 不泄露具体原因，统一返回
         return {"status": "error", "message": "Unauthorized"}
     
     # 异步执行部署脚本
@@ -203,13 +221,13 @@ async def trigger_deploy(request: Request):
                 cwd="/home/deploy/info-hub"
             )
             stdout, stderr = await proc.communicate()
-            logger.info(f"Deploy exit code: {proc.returncode}")
+            logger.info(f"[deploy] Exit code: {proc.returncode}")
             if stdout:
-                logger.info(stdout.decode()[-1000:])  # 最后 1000 字符
+                logger.info(stdout.decode()[-1000:])
             if stderr:
                 logger.error(stderr.decode()[-1000:])
         except Exception as e:
-            logger.error(f"Deploy failed: {e}")
+            logger.error(f"[deploy] Failed: {e}")
     
     asyncio.create_task(run_deploy())
     return {"status": "triggered", "message": "Deploy started"}
