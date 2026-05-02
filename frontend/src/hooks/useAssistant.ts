@@ -26,7 +26,7 @@ export function useAssistant(): UseAssistantReturn {
 
   const loadHistory = useCallback(async () => {
     try {
-      const res = await fetch('/api/assistant/history?limit=30')
+      const res = await fetch('/info-hub/api/assistant/history?limit=30')
       const data = await res.json()
       const items: AssistantMessage[] = (data.items || []).map((h: any) => ({
         role: h.role as 'user' | 'assistant',
@@ -41,7 +41,7 @@ export function useAssistant(): UseAssistantReturn {
 
   const loadSuggestions = useCallback(async () => {
     try {
-      const res = await fetch('/api/assistant/suggest')
+      const res = await fetch('/info-hub/api/assistant/suggest')
       const data = await res.json()
       setSuggestions(data.suggestions || [])
     } catch {
@@ -64,7 +64,7 @@ export function useAssistant(): UseAssistantReturn {
     // 启用 ReAct Agent 模式，让 LLM 可以使用工具（搜索、行情查询等）
     const body = JSON.stringify({ message: content.trim(), use_react: true })
 
-    fetch('/api/assistant/chat', {
+    fetch('/info-hub/api/assistant/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
@@ -80,7 +80,7 @@ export function useAssistant(): UseAssistantReturn {
         }
 
         // SSE 流式接收
-        const es = new EventSource(`/api/assistant/stream/${requestId}`)
+        const es = new EventSource(`/info-hub/api/assistant/stream/${requestId}`)
         eventSourceRef.current = es
 
         es.onmessage = (event) => {
@@ -123,7 +123,7 @@ export function useAssistant(): UseAssistantReturn {
   }, [loading, loadSuggestions])
 
   const clearHistory = useCallback(async () => {
-    await fetch('/api/assistant/history', { method: 'DELETE' })
+    await fetch('/info-hub/api/assistant/history', { method: 'DELETE' })
     setMessages([])
     loadSuggestions()
   }, [loadSuggestions])
