@@ -110,7 +110,7 @@ app.add_middleware(
 )
 
 # ── 注册路由 ──────────────────────────────────────────────
-from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis  # noqa: E402
+from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis, cross_validation  # noqa: E402
 
 
 # ── 版本信息 ──────────────────────────────────────────────
@@ -178,6 +178,7 @@ app.include_router(assistant.router, prefix="/api/assistant", tags=["复盘大�
 app.include_router(investment_calendar.router, prefix="/api/investment-calendar", tags=["投资日历"])
 app.include_router(obsession_phase.router, prefix="/api/obsession-phase", tags=["住相信号"])
 app.include_router(stock_analysis.router, prefix="/api/stock", tags=["A股分析引擎"])
+app.include_router(cross_validation.router, prefix="/api/stock", tags=["交叉验证"])
 app.include_router(wechat.router, prefix="", tags=["微信公众号搜索"])
 
 
