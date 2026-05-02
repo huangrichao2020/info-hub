@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from llm.qwen_client import chat_stream
+from llm.deepseek_client import chat_stream
 from services.assistant_memory import (
     add_history, add_memory, clear_history,
     get_history, get_memories, init_assistant_tables, update_memory_status,

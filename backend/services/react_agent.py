@@ -442,7 +442,7 @@ async def execute_react_agent(
 
     返回：(最终回复内容，工具调用历史)
     """
-    from llm.qwen_client import chat_stream_with_tools
+    from llm.deepseek_client import chat_stream_with_tools
 
     # 构建初始消息
     system_prompt = SYSTEM_PROMPT_PREFIX
