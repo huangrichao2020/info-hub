@@ -75,81 +75,58 @@ async def post_cross_validation(req: CrossValidationRequest):
 
 def _build_market_data_from_cache() -> dict:
     """
-    从本地 Parquet 缓存聚合市场数据。
-    遍历所有股票文件，计算：
-    - 涨停/跌停家数
-    - 成交量变化
-    - 均线多头排列比例
+    从本地 Parquet 缓存 + 东方财富 API 聚合市场数据。
+    优先使用真实数据，失败时降级到默认值。
     """
     from services.stock_engine import get_engine
+    from services.market_data_service import fetch_market_snapshot
     
-    engine = get_engine()
-    data_dir = engine.data_dir
-    
-    if not os.path.exists(data_dir):
-        return _get_default_market_data()
-    
-    files = [f for f in os.listdir(data_dir) if f.endswith('.parquet')]
-    if not files:
-        return _get_default_market_data()
-    
-    limit_up = 0
-    limit_down = 0
-    total_stocks = 0
-    ma_aligned = 0
-    
-    # 采样分析（全量太慢，取前 200 只）
-    sample_files = files[:200]
-    
-    for f in sample_files:
-        try:
-            path = os.path.join(data_dir, f)
-            df = pd.read_parquet(path, columns=['date', 'close', 'volume', 'high', 'low'])
-            if len(df) < 26:
-                continue
-            
-            total_stocks += 1
-            last_row = df.iloc[-1]
-            prev_row = df.iloc[-2]
-            
-            # 涨停/跌停估算（A 股 10% 限制）
-            close_change = (last_row['close'] / prev_row['close'] - 1) * 100
-            if close_change >= 9.8:
-                limit_up += 1
-            elif close_change <= -9.8:
-                limit_down += 1
-            
-            # MA25 多头判断
-            if len(df) >= 26:
-                ma25 = df['close'].rolling(25).mean().iloc[-1]
-                if last_row['close'] > ma25:
-                    ma_aligned += 1
+    # 尝试获取真实市场快照
+    try:
+        real_data = fetch_market_snapshot()
+        if real_data.get("fetched_at"):
+            logger.info(f"使用真实市场数据 (更新时间：{real_data['fetched_at']})")
+            # 合并 Parquet 计算的指标
+            engine = get_engine()
+            data_dir = engine.data_dir
+            if os.path.exists(data_dir):
+                files = [f for f in os.listdir(data_dir) if f.endswith('.parquet')]
+                if files:
+                    # 采样计算 volume_change 和 ma_alignment
+                    sample_files = files[:100]
+                    volume_changes = []
+                    ma_aligned = 0
+                    total = 0
                     
-        except Exception:
-            continue
+                    for f in sample_files:
+                        try:
+                            path = os.path.join(data_dir, f)
+                            df = pd.read_parquet(path, columns=['date', 'close', 'volume'])
+                            if len(df) < 26:
+                                continue
+                            
+                            total += 1
+                            vol_ratio = df['volume'].iloc[-1] / df['volume'].rolling(25).mean().iloc[-1]
+                            if pd.notna(vol_ratio) and vol_ratio > 0:
+                                volume_changes.append((vol_ratio - 1) * 100)
+                            
+                            ma25 = df['close'].rolling(25).mean().iloc[-1]
+                            if df['close'].iloc[-1] > ma25:
+                                ma_aligned += 1
+                        except Exception:
+                            continue
+                    
+                    if volume_changes:
+                        real_data['volume_change'] = sum(volume_changes) / len(volume_changes)
+                    real_data['ma_alignment'] = ma_aligned > total * 0.6 if total > 0 else False
+                    real_data['index_trend'] = "up" if ma_aligned > total * 0.6 else "sideways"
+            
+            return real_data
+    except Exception as e:
+        logger.warning(f"真实数据获取失败，降级到默认值：{e}")
     
-    # 估算成交量变化（简化：取样本平均）
-    volume_change = 5.0  # 默认温和放量
-    
-    return {
-        "volume_change": volume_change,
-        "north_flow": 0,  # 需要外部数据源
-        "limit_up": limit_up,
-        "limit_down": limit_down,
-        "sentiment": "neutral",
-        "consecutive_ban": 3,  # 需要实时数据
-        "yesterday_premium": 1.5,
-        "index_trend": "up" if ma_aligned > total_stocks * 0.6 else "sideways",
-        "ma_alignment": ma_aligned > total_stocks * 0.6,
-        "divergence": False,
-        "main_theme": "AI 应用",
-        "theme_limit_up": 8,
-        "theme_tiers": 4,
-        "dragon_head_status": "strong",
-        "policy": "neutral",
-        "us_market": "flat",
-        "exchange_rate_change": 0,
-    }
+    # 降级到默认值
+    return _get_default_market_data()
 
 
 def _get_default_market_data() -> dict:
