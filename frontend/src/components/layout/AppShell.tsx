@@ -13,15 +13,11 @@ const PANELS = {
   'chan-chart': lazy(() => import('../chan/ChanChartPanel')),
   'concept-board': lazy(() => import('../concept-board/ConceptBoardPanel')),
   'strict-turn-strong': lazy(() => import('../turn-strong/StrictTurnStrongPanel')),
-  'ai-news': lazy(() => import('../ai-news/AINewsPanel')),
-  'trending': lazy(() => import('../trending/TrendingPanel')),
-  'article-gen': lazy(() => import('../article-gen/ArticleGenPanel')),
   'fin-news': lazy(() => import('../fin-news/FinNewsPanel')),
   'sectors': lazy(() => import('../sectors/SectorsPanel')),
   'zt-analysis': lazy(() => import('../zt-analysis/ZTPanel')),
   'turn-strong': lazy(() => import('../turn-strong/TurnStrongPanel')),
   'review-report': lazy(() => import('../review-report/ReviewPanel')),
-  'wechat-search': lazy(() => import('../wechat-search/WechatSearchPanel')),
   'obsession-phase': lazy(() => import('../obsession-phase/ObsessionPhasePanel')),
 }
 

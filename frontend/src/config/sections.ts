@@ -1,16 +1,12 @@
 import {
   ArrowUpCircle,
   FileText,
-  Hash,
   LayoutGrid,
-  Newspaper,
-  PenLine,
   Radar,
   ScanSearch,
   TrendingUp,
   CandlestickChart,
   CalendarDays,
-  MessageCircle,
   AlertTriangle,
   GitMerge,
   type LucideIcon,
@@ -25,7 +21,7 @@ export interface SectionMeta {
   description: string
   dotColor: string
   icon: LucideIcon
-  group: 'core' | 'evidence' | 'content' | 'calendar'
+  group: 'core' | 'evidence' | 'calendar'
 }
 
 export const SECTION_META: Record<Section, SectionMeta> = {
@@ -119,42 +115,6 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: ArrowUpCircle,
     group: 'evidence',
   },
-  'ai-news': {
-    key: 'ai-news',
-    label: 'AI 新闻',
-    shortLabel: 'AI',
-    description: '资讯摘要与主题监控，不直接形成交易决策。',
-    dotColor: 'var(--color-accent)',
-    icon: Newspaper,
-    group: 'content',
-  },
-  trending: {
-    key: 'trending',
-    label: '热门话题',
-    shortLabel: '话题',
-    description: '观察热点分发，不直接替代市场结构判断。',
-    dotColor: 'var(--color-gold)',
-    icon: Hash,
-    group: 'content',
-  },
-  'article-gen': {
-    key: 'article-gen',
-    label: '一键写文',
-    shortLabel: '写文',
-    description: '内容生产工具，与交易主流程解耦。',
-    dotColor: 'var(--color-purple)',
-    icon: PenLine,
-    group: 'content',
-  },
-  'wechat-search': {
-    key: 'wechat-search',
-    label: '公众号搜索',
-    shortLabel: '公众号',
-    description: '搜索和浏览微信公众号文章，获取交易复盘和市场分析资讯。',
-    dotColor: 'var(--color-green)',
-    icon: MessageCircle,
-    group: 'content',
-  },
   'obsession-phase': {
     key: 'obsession-phase',
     label: '住相信号',
@@ -179,7 +139,6 @@ export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: s
   { key: 'calendar', label: '前瞻规划', hint: '提前布局未来事件驱动机会' },
   { key: 'core', label: '核心作战', hint: '真正承担交易决策的主流程' },
   { key: 'evidence', label: '证据层', hint: '为方法论提供证据，不替代判断' },
-  { key: 'content', label: '内容实验区', hint: '保留但降级，不干扰交易主流程' },
 ]
 
 export const SECTION_ORDER: Section[] = [
@@ -194,9 +153,5 @@ export const SECTION_ORDER: Section[] = [
   'fin-news',
   'sectors',
   'zt-analysis',
-  'ai-news',
-  'trending',
-  'article-gen',
-  'wechat-search',
   'obsession-phase',
 ]
