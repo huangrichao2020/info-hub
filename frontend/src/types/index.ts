@@ -1,6 +1,7 @@
 export type Section =
   | 'investment-calendar'
   | 'trade-desk'
+  | 'main-wave'
   | 'chan-chart'
   | 'concept-board'
   | 'strict-turn-strong'

@@ -34,6 +34,15 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: TrendingUp,
     group: 'core',
   },
+  'main-wave': {
+    key: 'main-wave',
+    label: '主升浪机会',
+    shortLabel: '机会',
+    description: '放量上涨 + MA25 趋势向上的量价共振标的。',
+    dotColor: 'var(--color-emerald)',
+    icon: ArrowUpCircle,
+    group: 'core',
+  },
   'investment-calendar': {
     key: 'investment-calendar',
     label: '投资日历',
@@ -143,6 +152,7 @@ export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: s
 
 export const SECTION_ORDER: Section[] = [
   'trade-desk',
+  'main-wave',
   'cross-validation',
   'investment-calendar',
   'chan-chart',

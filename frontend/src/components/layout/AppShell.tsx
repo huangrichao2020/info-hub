@@ -8,6 +8,7 @@ import LoadingSkeleton from '../common/LoadingSkeleton'
 
 const PANELS = {
   'trade-desk': lazy(() => import('../dashboard/TradeDeskPanel')),
+  'main-wave': lazy(() => import('../dashboard/MainWavePanel')),
   'cross-validation': lazy(() => import('../cross-validation/CrossValidationPanel')),
   'investment-calendar': lazy(() => import('../investment-calendar/InvestmentCalendarPanel')),
   'chan-chart': lazy(() => import('../chan/ChanChartPanel')),
