@@ -12,6 +12,7 @@ import {
   CalendarDays,
   MessageCircle,
   AlertTriangle,
+  GitMerge,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -163,6 +164,15 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: AlertTriangle,
     group: 'core',
   },
+  'cross-validation': {
+    key: 'cross-validation',
+    label: '交叉验证',
+    shortLabel: '验证',
+    description: '五视角交叉验证（供需/执念/住相/龙头/宏观），输出共识与行动计划。',
+    dotColor: 'var(--color-purple)',
+    icon: GitMerge,
+    group: 'core',
+  },
 }
 
 export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: string }[] = [
@@ -174,6 +184,7 @@ export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: s
 
 export const SECTION_ORDER: Section[] = [
   'trade-desk',
+  'cross-validation',
   'investment-calendar',
   'chan-chart',
   'concept-board',

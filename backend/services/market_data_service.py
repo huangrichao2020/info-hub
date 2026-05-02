@@ -55,38 +55,26 @@ def fetch_limit_stats() -> Dict[str, int]:
     """
     try:
         # 涨停家数
-        url = "https://push2ex.eastmoney.com/getTopicZTPool"
-        params = {
-            "ut": "7eea3edcaed734bea9cb0088a5b3e8b2",
-            "dtp": "1",
-            "sty": "tdcp",
-            "fldt": "1",
-        }
-        resp = requests.get(url, params=params, headers=EASTMONEY_HEADERS, timeout=10)
+        resp = requests.get(
+            "https://push2ex.eastmoney.com/getTopicZTPool",
+            params={"ut": "7eea3edcaed734bea9cb0088a5b3e8b2", "dtp": "1", "sty": "tdcp", "fldt": "1"},
+            headers=EASTMONEY_HEADERS, timeout=10
+        )
         if resp.status_code == 200:
             data = resp.json()
-            if data.get("data") and data["data"].get("pool"):
-                limit_up = len(data["data"]["pool"])
-            else:
-                limit_up = 0
+            limit_up = len(data.get("data", {}).get("pool", [])) if data.get("data") else 0
         else:
             limit_up = 0
 
         # 跌停家数
-        url = "https://push2ex.eastmoney.com/getTopicDTPool"
-        params = {
-            "ut": "7eea3edcaed734bea9cb0088a5b3e8b2",
-            "dtp": "1",
-            "sty": "tdcp",
-            "fldt": "1",
-        }
-        resp = requests.get(url, params=params, headers=EASTMONEY_HEADERS, timeout=10)
+        resp = requests.get(
+            "https://push2ex.eastmoney.com/getTopicDTPool",
+            params={"ut": "7eea3edcaed734bea9cb0088a5b3e8b2", "dtp": "1", "sty": "tdcp", "fldt": "1"},
+            headers=EASTMONEY_HEADERS, timeout=10
+        )
         if resp.status_code == 200:
             data = resp.json()
-            if data.get("data") and data["data"].get("pool"):
-                limit_down = len(data["data"]["pool"])
-            else:
-                limit_down = 0
+            limit_down = len(data.get("data", {}).get("pool", [])) if data.get("data") else 0
         else:
             limit_down = 0
 
@@ -97,6 +85,61 @@ def fetch_limit_stats() -> Dict[str, int]:
         return {"limit_up": 0, "limit_down": 0}
 
 
+def fetch_lianban_stats() -> int:
+    """
+    获取当前最高连板高度。
+    从涨停池中解析每只股票的连续涨停天数（fbt 字段）。
+    """
+    try:
+        resp = requests.get(
+            "https://push2ex.eastmoney.com/getTopicZTPool",
+            params={"ut": "7eea3edcaed734bea9cb0088a5b3e8b2", "dtp": "1", "sty": "tdcp", "fldt": "1"},
+            headers=EASTMONEY_HEADERS, timeout=10
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            pool = data.get("data", {}).get("pool", [])
+            max_ban = 0
+            for stock in pool:
+                fbt = stock.get("fbt") or stock.get("连续涨停天数") or 0
+                try:
+                    max_ban = max(max_ban, int(fbt))
+                except (ValueError, TypeError):
+                    continue
+            return max_ban
+    except Exception as e:
+        logger.warning(f"获取连板高度失败：{e}")
+    return 0
+
+
+def fetch_yesterday_premium() -> float:
+    """
+    获取昨日涨停股今日平均溢价（百分比）。
+    计算涨停池中今日涨幅均值。
+    """
+    try:
+        resp = requests.get(
+            "https://push2ex.eastmoney.com/getTopicZTPool",
+            params={"ut": "7eea3edcaed734bea9cb0088a5b3e8b2", "dtp": "1", "sty": "tdcp", "fldt": "1"},
+            headers=EASTMONEY_HEADERS, timeout=10
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            pool = data.get("data", {}).get("pool", [])
+            premiums = []
+            for stock in pool:
+                pct = stock.get("pct") or stock.get("涨跌幅") or 0
+                try:
+                    premiums.append(float(pct))
+                except (ValueError, TypeError):
+                    continue
+            if premiums:
+                return round(sum(premiums) / len(premiums), 2)
+    except Exception as e:
+        logger.warning(f"获取昨日涨停溢价失败：{e}")
+    return 0.0
+
+
 def fetch_market_snapshot() -> Dict[str, Any]:
     """
     获取完整市场快照，用于交叉验证。
@@ -104,12 +147,14 @@ def fetch_market_snapshot() -> Dict[str, Any]:
     """
     north_flow = fetch_north_flow()
     limit_stats = fetch_limit_stats()
+    lianban = fetch_lianban_stats()
+    premium = fetch_yesterday_premium()
 
     # 计算涨跌比
     total = limit_stats["limit_up"] + limit_stats["limit_down"]
     limit_ratio = limit_stats["limit_up"] / max(total, 1)
 
-    # 情绪判断（简化版）
+    # 情绪判断
     if limit_ratio > 0.8 and north_flow > 50:
         sentiment = "greed"
     elif limit_ratio < 0.2 and north_flow < -50:
@@ -123,8 +168,8 @@ def fetch_market_snapshot() -> Dict[str, Any]:
         "limit_up": limit_stats["limit_up"],
         "limit_down": limit_stats["limit_down"],
         "sentiment": sentiment,
-        "consecutive_ban": 0,  # 需要连板数据
-        "yesterday_premium": 0.0,  # 需要昨日涨停今日表现
+        "consecutive_ban": lianban,
+        "yesterday_premium": premium,
         "index_trend": "sideways",  # 需要指数数据
         "ma_alignment": False,
         "divergence": False,

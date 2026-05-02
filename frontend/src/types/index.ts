@@ -14,6 +14,7 @@ export type Section =
   | 'review-report'
   | 'wechat-search'
   | 'obsession-phase'
+  | 'cross-validation'
 
 export interface NewsItem {
   id: string
