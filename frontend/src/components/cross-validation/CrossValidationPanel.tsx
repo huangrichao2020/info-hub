@@ -14,6 +14,7 @@ import {
   BarElement,
 } from 'chart.js';
 import { Target, AlertTriangle, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
+import apiClient from '../../api/client';
 
 ChartJS.register(
   RadialLinearScale,
@@ -69,12 +70,10 @@ export default function CrossValidationPanel() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/stock/cross-validation');
-      if (!res.ok) throw new Error('获取数据失败');
-      const json = await res.json();
-      setData(json);
+      const res = await apiClient.get('/stock/cross-validation');
+      setData(res.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '未知错误');
+      setError(err instanceof Error ? err.message : '获取数据失败');
     } finally {
       setLoading(false);
     }

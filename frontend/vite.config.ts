@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 const apiTarget = process.env.INFO_HUB_API_TARGET || 'http://127.0.0.1:8001'
 
 export default defineConfig({
+  base: '/info-hub/',
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
