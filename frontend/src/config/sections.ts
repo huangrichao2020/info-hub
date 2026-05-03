@@ -1,14 +1,19 @@
 import {
   ArrowUpCircle,
   FileText,
+  Hash,
   LayoutGrid,
+  Newspaper,
+  PenLine,
   Radar,
   ScanSearch,
   TrendingUp,
   CandlestickChart,
   CalendarDays,
+  MessageCircle,
   AlertTriangle,
-  GitMerge,
+  ShieldCheck,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -21,7 +26,7 @@ export interface SectionMeta {
   description: string
   dotColor: string
   icon: LucideIcon
-  group: 'core' | 'evidence' | 'calendar'
+  group: 'core' | 'evidence' | 'content' | 'calendar'
 }
 
 export const SECTION_META: Record<Section, SectionMeta> = {
@@ -32,15 +37,6 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     description: '以 uwillberich 为核心，统领复盘与转强两条主线。',
     dotColor: 'var(--color-gold)',
     icon: TrendingUp,
-    group: 'core',
-  },
-  'main-wave': {
-    key: 'main-wave',
-    label: '主升浪机会',
-    shortLabel: '机会',
-    description: '放量上涨 + MA25 趋势向上的量价共振标的。',
-    dotColor: 'var(--color-emerald)',
-    icon: ArrowUpCircle,
     group: 'core',
   },
   'investment-calendar': {
@@ -124,6 +120,42 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: ArrowUpCircle,
     group: 'evidence',
   },
+  'ai-news': {
+    key: 'ai-news',
+    label: 'AI 新闻',
+    shortLabel: 'AI',
+    description: '资讯摘要与主题监控，不直接形成交易决策。',
+    dotColor: 'var(--color-accent)',
+    icon: Newspaper,
+    group: 'content',
+  },
+  trending: {
+    key: 'trending',
+    label: '热门话题',
+    shortLabel: '话题',
+    description: '观察热点分发，不直接替代市场结构判断。',
+    dotColor: 'var(--color-gold)',
+    icon: Hash,
+    group: 'content',
+  },
+  'article-gen': {
+    key: 'article-gen',
+    label: '一键写文',
+    shortLabel: '写文',
+    description: '内容生产工具，与交易主流程解耦。',
+    dotColor: 'var(--color-purple)',
+    icon: PenLine,
+    group: 'content',
+  },
+  'wechat-search': {
+    key: 'wechat-search',
+    label: '公众号搜索',
+    shortLabel: '公众号',
+    description: '搜索和浏览微信公众号文章，获取交易复盘和市场分析资讯。',
+    dotColor: 'var(--color-green)',
+    icon: MessageCircle,
+    group: 'content',
+  },
   'obsession-phase': {
     key: 'obsession-phase',
     label: '住相信号',
@@ -133,13 +165,31 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: AlertTriangle,
     group: 'core',
   },
+  'amazingdata-kline': {
+    key: 'amazingdata-kline',
+    label: '主升浪日K',
+    shortLabel: '日K',
+    description: '基于 AmazingData 的日K数据，量价共振信号与主升浪候选。',
+    dotColor: 'var(--color-green)',
+    icon: BarChart3,
+    group: 'core',
+  },
+  'kline-multi-period': {
+    key: 'kline-multi-period',
+    label: '多周期K线',
+    shortLabel: '多周期',
+    description: 'AmazingData 多周期K线对比（日线+60分钟+15分钟+1分钟）。',
+    dotColor: 'var(--color-purple)',
+    icon: BarChart3,
+    group: 'evidence',
+  },
   'cross-validation': {
     key: 'cross-validation',
     label: '交叉验证',
     shortLabel: '验证',
-    description: '五视角交叉验证（供需/执念/住相/龙头/宏观），输出共识与行动计划。',
-    dotColor: 'var(--color-purple)',
-    icon: GitMerge,
+    description: '五视角交叉验证市场共识与分歧。',
+    dotColor: 'var(--color-gold)',
+    icon: ShieldCheck,
     group: 'core',
   },
 }
@@ -148,12 +198,11 @@ export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: s
   { key: 'calendar', label: '前瞻规划', hint: '提前布局未来事件驱动机会' },
   { key: 'core', label: '核心作战', hint: '真正承担交易决策的主流程' },
   { key: 'evidence', label: '证据层', hint: '为方法论提供证据，不替代判断' },
+  { key: 'content', label: '内容实验区', hint: '保留但降级，不干扰交易主流程' },
 ]
 
 export const SECTION_ORDER: Section[] = [
   'trade-desk',
-  'main-wave',
-  'cross-validation',
   'investment-calendar',
   'chan-chart',
   'concept-board',
@@ -163,5 +212,12 @@ export const SECTION_ORDER: Section[] = [
   'fin-news',
   'sectors',
   'zt-analysis',
+  'ai-news',
+  'trending',
+  'article-gen',
+  'wechat-search',
   'obsession-phase',
+  'amazingdata-kline',
+  'kline-multi-period',
+  'cross-validation',
 ]

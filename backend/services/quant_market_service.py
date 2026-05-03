@@ -17,6 +17,128 @@ logger = logging.getLogger("info-hub.quant-market")
 IWENCAI_BASE_URL = os.environ.get("IWENCAI_BASE_URL", "https://openapi.iwencai.com")
 IWENCAI_API_KEY = ""
 
+
+# AmazingData 配置
+AMAZINGDATA_LAN_BASE_URL = os.environ.get("AMAZINGDATA_LAN_BASE_URL", "http://192.168.5.9:7713")
+AMAZINGDATA_PUBLIC_BASE_URL = os.environ.get("AMAZINGDATA_PUBLIC_BASE_URL", "https://www.ai10088.com/amazingdata")
+_AMAZINGDATA_TOKEN = os.environ.get("AMAZINGDATA_PUBLIC_RELAY_TOKEN", "").strip()
+_AMAZINGDATA_TOKEN_FILE = os.environ.get("AMAZINGDATA_PUBLIC_RELAY_TOKEN_FILE", "")
+
+
+def _load_amazingdata_token() -> str:
+    """加载 AmazingData token"""
+    if _AMAZINGDATA_TOKEN:
+        return _AMAZINGDATA_TOKEN
+    if _AMAZINGDATA_TOKEN_FILE and os.path.exists(_AMAZINGDATA_TOKEN_FILE):
+        with open(_AMAZINGDATA_TOKEN_FILE, "r") as f:
+            return f.read().strip()
+    for env_path in ["/root/hermes-agent/.env", os.path.expanduser("~/.hermes/.env")]:
+        if os.path.exists(env_path):
+            for line in open(env_path, encoding="utf-8"):
+                line = line.strip()
+                if line.startswith("AMAZINGDATA_PUBLIC_RELAY_TOKEN=") and not line.startswith("#"):
+                    return line.split("=", 1)[1].strip()
+    return ""
+
+
+async def _fetch_amazingdata_kline(
+    code: str,
+    period: str = "day",
+    begin_date: int | None = None,
+    end_date: int | None = None,
+    lookback_days: int = 30,
+) -> list[dict]:
+    """从 AmazingData 获取 K 线数据"""
+    token = _load_amazingdata_token()
+    if not token:
+        import logging
+        logging.getLogger("info-hub.quant-market").warning("AmazingData token not configured")
+        return []
+
+    base_url = AMAZINGDATA_PUBLIC_BASE_URL
+    params: dict = {"code": code.upper(), "period": period}
+    if begin_date:
+        params["begin_date"] = str(begin_date)
+    elif lookback_days:
+        params["lookback_days"] = str(lookback_days)
+    if end_date:
+        params["end_date"] = str(end_date)
+
+    endpoint = "/api/v1/trading/daily-bars" if period == "day" else "/api/v1/trading/kline"
+    url = f"{base_url}{endpoint}"
+
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=20, trust_env=False) as client:
+            resp = await client.get(url, params=params, headers={"Authorization": f"Bearer {token}"})
+            resp.raise_for_status()
+            payload = resp.json()
+    except Exception as exc:
+        import logging
+        logging.getLogger("info-hub.quant-market").warning("AmazingData K线获取失败 %s: %s", code, exc)
+        return []
+
+    data = payload.get("data") or {}
+    items = data.get("items") or []
+    result_items = []
+    for item in items:
+        ts = item.get("trade_date") or item.get("date") or item.get("timestamp", "")
+        if ts and len(str(ts)) == 8 and str(ts).isdigit():
+            ts = f"{ts[:4]}-{ts[4:6]}-{ts[6:8]}T00:00:00"
+        elif ts and "T" not in str(ts) and "-" not in str(ts) and len(str(ts)) >= 8:
+            ts_str = str(ts)
+            ts = f"{ts_str[:4]}-{ts_str[4:6]}-{ts_str[6:8]}T00:00:00"
+        result_items.append({
+            "code": code.upper(),
+            "timestamp": ts,
+            "open": float(item.get("open", 0)),
+            "high": float(item.get("high", 0)),
+            "low": float(item.get("low", 0)),
+            "close": float(item.get("close", 0)),
+            "volume": float(item.get("volume", 0)),
+            "amount": float(item.get("amount", 0)),
+            "source": "amazingdata",
+        })
+    return result_items
+
+
+async def get_amazingdata_capabilities() -> dict:
+    """获取 AmazingData 能力信息"""
+    token = _load_amazingdata_token()
+    if not token:
+        return {"error": "AmazingData token not configured"}
+    import httpx
+    base_url = AMAZINGDATA_PUBLIC_BASE_URL
+    url = f"{base_url}/api/v1/trading/capabilities"
+    try:
+        async with httpx.AsyncClient(timeout=15, trust_env=False) as client:
+            resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+async def get_amazingdata_daily_bars(
+    code: str,
+    begin_date: int | None = None,
+    end_date: int | None = None,
+    lookback_days: int = 30,
+) -> dict:
+    """获取 AmazingData 日K快捷接口数据"""
+    items = await _fetch_amazingdata_kline(
+        code=code, period="day",
+        begin_date=begin_date, end_date=end_date,
+        lookback_days=lookback_days,
+    )
+    return {
+        "code": code.upper(),
+        "source": "amazingdata",
+        "count": len(items),
+        "items": items,
+    }
+
+
 # K 线周期映射 - 分钟级走东财接口，日线走问财接口
 KLINE_PERIOD_ALIAS = {
     "minute": "min1",

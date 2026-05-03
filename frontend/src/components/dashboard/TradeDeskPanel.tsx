@@ -295,7 +295,7 @@ export default function TradeDeskPanel() {
                   <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 'var(--text-sm)' }}>
                     <div>{item.name}</div>
                     <div style={{ color: item.change_pct >= 0 ? 'var(--color-red)' : 'var(--color-green)', fontWeight: 700 }}>
-                      {item.change_pct >= 0 ? '+' : ''}{item.change_pct.toFixed(2)}%
+                      {item.change_pct != null ? `${item.change_pct >= 0 ? '+' : ''}${item.change_pct.toFixed(2)}%` : 'N/A'}
                     </div>
                   </div>
                 ))}
@@ -335,7 +335,7 @@ export default function TradeDeskPanel() {
                   <div key={idx.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 'var(--text-sm)' }}>
                     <div>{idx.name}</div>
                     <div style={{ color: idx.change_pct >= 0 ? 'var(--color-red)' : 'var(--color-green)', fontWeight: 700 }}>
-                      {idx.change_pct >= 0 ? '+' : ''}{idx.change_pct.toFixed(2)}%
+                      {idx.change_pct != null ? `${idx.change_pct >= 0 ? '+' : ''}${idx.change_pct.toFixed(2)}%` : 'N/A'}
                     </div>
                   </div>
                 ))}
@@ -349,7 +349,7 @@ export default function TradeDeskPanel() {
                   <div key={item.code} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 'var(--text-sm)' }}>
                     <div>{item.name}</div>
                     <div style={{ color: 'var(--color-red)', fontWeight: 700 }}>
-                      +{item.change_pct.toFixed(2)}%
+                      {item.change_pct != null ? `+${item.change_pct.toFixed(2)}%` : 'N/A'}
                     </div>
                   </div>
                 ))}

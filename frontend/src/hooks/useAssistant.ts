@@ -138,3 +138,4 @@ export function useAssistant(): UseAssistantReturn {
 
   return { messages, loading, error, sendMessage, clearHistory, loadHistory, suggestions, loadSuggestions }
 }
+

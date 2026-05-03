@@ -29,6 +29,22 @@ async def current():
     }
 
 
+@router.get("/latest")
+async def latest():
+    """获取最新转强选股结果（/history 的别名）"""
+    run = get_turn_strong_today_or_latest()
+    if run:
+        return run
+    return {
+        "status": "empty",
+        "trade_date": "",
+        "items": [],
+        "market_snapshot": {},
+        "overall_analysis": {},
+        "key_pool": {"configured_keys": 0, "items": []},
+    }
+
+
 @router.get("/history")
 async def history(date: str = Query("", description="YYYY-MM-DD")):
     if date:

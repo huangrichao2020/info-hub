@@ -101,7 +101,7 @@ export default function ReviewPanel() {
   const handleGenerate = () => {
     if (portfolio.length === 0) return
     setSelectedHistoryId(null)
-    startStream('/api/review/generate', { portfolio, date: reviewDate })
+    startStream('/info-hub/api/review/generate', { portfolio, date: reviewDate })
   }
 
   const loadHistory = useCallback(async () => {

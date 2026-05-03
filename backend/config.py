@@ -55,12 +55,13 @@ _load_env_file(HOME / ".uwillberich" / "runtime.env")
 # 加载 Qwen DashScope key
 _load_env_file(HOME / "Desktop" / "uwillberich" / ".qwen-env")
 # 加载本地 shell profile 中的问财等环境变量
+_load_env_file(Path(__file__).parent / ".env")  # backend/.env
 _load_env_file(HOME / ".zshrc")
 _load_env_file(HOME / ".bash_profile")
 
 # ── DashScope / Qwen 配置 ────────────────────────────────
-DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
-DASHSCOPE_BASE_URL = os.environ.get("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", os.environ.get("AUXILIARY_VISION_API_KEY", ""))
+DASHSCOPE_BASE_URL = os.environ.get("DASHSCOPE_BASE_URL", os.environ.get("AUXILIARY_VISION_BASE_URL", "https://coding.dashscope.aliyuncs.com/v1"))
 QWEN_MODEL = "qwen3-coder-plus"
 
 # ── 确保数据目录存在 ──────────────────────────────────────

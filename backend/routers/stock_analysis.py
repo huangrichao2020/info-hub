@@ -187,3 +187,13 @@ async def trigger_dump(limit: int = None):
     """Manually trigger data dump."""
     from services.stock_engine.dump_service import run_incremental_dump
     return run_incremental_dump(limit=limit)
+
+
+@router.get("/analysis/{symbol}/comprehensive")
+async def comprehensive_analysis(symbol: str, use_llm: bool = True):
+    """
+    个股综合分析 - 13提示词框架 + 执念/供需视角
+    融合LLM定性分析 + 本地量化数据
+    """
+    from services.comprehensive_analysis import analyze_stock
+    return await analyze_stock(symbol, use_llm=use_llm)

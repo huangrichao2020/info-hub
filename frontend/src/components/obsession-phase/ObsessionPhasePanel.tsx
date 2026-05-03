@@ -66,7 +66,7 @@ export default function ObsessionPhasePanel() {
       const formData = new URLSearchParams()
       formData.append('signal_name', signalName)
       formData.append('triggered', String(triggered))
-      await fetch(`/api/obsession-phase/mark?${formData.toString()}`, { method: 'POST' })
+      await fetch(`/info-hub/api/obsession-phase/mark?${formData.toString()}`, { method: 'POST' })
       refetch()
     } catch {
       // ignore
@@ -75,7 +75,7 @@ export default function ObsessionPhasePanel() {
 
   const handleResetSignals = async () => {
     try {
-      await fetch('/api/obsession-phase/reset', { method: 'POST' })
+      await fetch('/info-hub/api/obsession-phase/reset', { method: 'POST' })
       refetch()
     } catch {
       // ignore
@@ -296,3 +296,4 @@ export default function ObsessionPhasePanel() {
     </div>
   )
 }
+

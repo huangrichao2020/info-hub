@@ -1,142 +1,136 @@
-"""涨停分析服务 - 包装 uwillberich zt_review"""
-import asyncio
+"""涨停分析服务 - 基于本地Baostock真实数据"""
+import json
+import os
+import time
 import logging
-import re
+from datetime import datetime
 
 logger = logging.getLogger("info-hub.zt")
 
-
-def _extract_rows(raw: dict | list | None) -> list[dict]:
-    """从 MX API 原始响应中提取 rows 列表"""
-    if raw is None:
-        return []
-    if isinstance(raw, list):
-        return raw
-    if isinstance(raw, dict):
-        return raw.get("rows", [])
-    return []
+CACHE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'cache', 'full_market_3m.json')
+_cache = None
+_cache_time = 0
+_TTL = 300
 
 
-def _find_key(row: dict, prefix: str) -> str | None:
-    """在 row 中找匹配前缀的 key（MX API 的 key 带日期后缀）"""
-    for k in row:
-        if k.startswith(prefix):
-            return k
-    return None
-
-
-def _normalize_zt(row: dict) -> dict:
-    """把 MX API 原始行转换为前端需要的格式"""
-    code = row.get("SECURITY_CODE", "")
-    name = row.get("SECURITY_SHORT_NAME", "") or row.get("MARKET_SHORT_NAME", "")
-
-    # CHG 涨幅
-    chg = row.get("CHG", 0)
-    try:
-        change_pct = float(chg) if chg else 0
-    except (ValueError, TypeError):
-        change_pct = 0
-
-    # 涨停原因 / 概念
-    reason = row.get("STYLE_CONCEPT", "") or ""
-    if len(reason) > 80:
-        reason = reason[:80] + "..."
-
-    # 连板数
-    lianban_key = _find_key(row, "010000_LIAN_BAN")
-    lianban_count = 0
-    if lianban_key:
+def _load_cache():
+    global _cache, _cache_time
+    now = time.time()
+    if _cache is None or (now - _cache_time) > _TTL:
         try:
-            lianban_count = int(float(row[lianban_key]))
-        except (ValueError, TypeError):
-            pass
-
-    # 封单额
-    limit_up_key = _find_key(row, "010000_LIMIT_UP_A")
-    seal_amount = ""
-    if limit_up_key:
-        seal_amount = str(row.get(limit_up_key, ""))
-
-    # 成交额
-    volume_key = _find_key(row, "010000_TRADING_VOLUMES")
-    volume = ""
-    if volume_key:
-        volume = str(row.get(volume_key, ""))
-
-    # 流通市值
-    mv_key = _find_key(row, "010000_CIRCULATION_MARKET_VALUE")
-    market_value = ""
-    if mv_key:
-        market_value = str(row.get(mv_key, ""))
-
-    # 换手率 -> 人气分 (换手率越高人气越高, 归一化到 0-100)
-    turnover_key = _find_key(row, "010000_TURNOVER_RATE")
-    popularity_score = None
-    if turnover_key:
-        try:
-            turnover = float(row[turnover_key])
-            popularity_score = min(round(turnover * 5), 100)  # 20%换手率 = 100分
-        except (ValueError, TypeError):
-            pass
-
-    return {
-        "code": code,
-        "name": name,
-        "change_pct": change_pct,
-        "reason": reason,
-        "lianban_count": lianban_count,
-        "seal_amount": seal_amount,
-        "volume": volume,
-        "market_value": market_value,
-        "popularity_score": popularity_score,
-    }
+            with open(CACHE_PATH, 'r') as f:
+                _cache = json.load(f)
+            _cache_time = now
+        except Exception as e:
+            logger.error(f"加载涨停缓存失败: {e}")
+            _cache = {'zt_stocks': [], 'dt_stocks': [], 'all_stocks': [], 'sectors': []}
+            _cache_time = now
+    return _cache
 
 
-async def get_zt_today() -> list[dict]:
+async def get_zt_today():
     """获取今日涨停股"""
-    try:
-        import zt_review
-        result = await asyncio.to_thread(zt_review.query_zt_today)
-        rows = _extract_rows(result)
-        return [_normalize_zt(r) for r in rows]
-    except Exception as e:
-        logger.error(f"获取涨停数据失败: {e}")
-        return []
+    cache = _load_cache()
+    zt_stocks = cache.get('zt_stocks', [])
+
+    results = []
+    for s in zt_stocks:
+        # 从行业信息推断涨停原因
+        industry = s.get('industry', '')
+        reason = f"{industry}板块" if industry else "个股异动"
+
+        results.append({
+            'code': s['code'],
+            'name': s['name'],
+            'change_pct': s['change_pct'],
+            'reason': reason,
+            'lianban_count': 1,  # baostock无法直接获取连板数，默认为1
+            'seal_amount': 'N/A',  # 需要Level-2数据
+            'volume': s.get('volume', 0),
+            'close': s['close'],
+            'market_value': '',
+            'popularity_score': 50,
+            'industry': industry,
+            'date': s.get('date', ''),
+        })
+
+    return results
 
 
-async def get_lianban() -> list[dict]:
-    """获取连板股"""
-    try:
-        import zt_review
-        result = await asyncio.to_thread(zt_review.query_lianban)
-        rows = _extract_rows(result)
-        items = [_normalize_zt(r) for r in rows]
-        # 按连板数降序
-        items.sort(key=lambda x: x["lianban_count"], reverse=True)
-        return items
-    except Exception as e:
-        logger.error(f"获取连板数据失败: {e}")
-        return []
+async def get_lianban():
+    """获取连板股（从涨停股中筛选）"""
+    # 简化版：涨幅>=19.8%视为连板（主板2天涨停）
+    cache = _load_cache()
+    all_stocks = cache.get('all_stocks', [])
+
+    lianban = [s for s in all_stocks if s.get('change_pct', 0) >= 19.8]
+    results = []
+    for s in lianban:
+        industry = s.get('industry', '')
+        results.append({
+            'code': s['code'],
+            'name': s['name'],
+            'change_pct': s['change_pct'],
+            'lianban_count': 2,
+            'reason': f"{industry}板块强势" if industry else "连续涨停",
+            'date': s.get('date', ''),
+        })
+
+    return results
 
 
-async def get_recent_zt(days: int = 7) -> list[dict]:
-    """获取近N天涨停数据"""
-    try:
-        import zt_review
-        result = await asyncio.to_thread(zt_review.query_recent_zt, days)
-        rows = _extract_rows(result)
-        return [_normalize_zt(r) for r in rows]
-    except Exception as e:
-        logger.error(f"获取历史涨停失败: {e}")
-        return []
+async def get_recent_zt(days=7):
+    """获取近期涨停股（简化：返回当前涨停列表）"""
+    return await get_zt_today()
 
 
-async def get_zt_report(days: int = 7) -> str:
-    """获取涨停复盘报告（Markdown）"""
-    try:
-        import zt_review
-        result = await asyncio.to_thread(zt_review.render_report, days)
-        return result or ""
-    except Exception as e:
-        logger.error(f"生成涨停报告失败: {e}")
-        return ""
+async def get_zt_report(days=7):
+    """生成涨停复盘报告"""
+    zt = await get_zt_today()
+    dt_cache = _load_cache()
+    dt = dt_cache.get('dt_stocks', [])
+
+    lines = [
+        f"## 涨停复盘 ({datetime.now().strftime('%Y-%m-%d')})",
+        f"涨停 {len(zt)} 家, 跌停 {len(dt)} 家",
+        ""
+    ]
+
+    # 按行业统计
+    industry_counts = {}
+    for s in zt:
+        ind = s.get('industry', '未知')
+        industry_counts[ind] = industry_counts.get(ind, 0) + 1
+
+    if industry_counts:
+        lines.append("### 涨停行业分布")
+        for ind, cnt in sorted(industry_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+            lines.append(f"- {ind}: {cnt}只")
+        lines.append("")
+
+    lines.append("### 涨停个股")
+    for i, s in enumerate(zt[:20]):
+        lines.append(f"{i+1}. {s['name']} ({s['code']}) {s['change_pct']:+.2f}% {s.get('reason','')}")
+
+    return "\n".join(lines)
+
+
+async def get_dt_today():
+    """获取今日跌停股"""
+    cache = _load_cache()
+    dt_stocks = cache.get('dt_stocks', [])
+
+    results = []
+    for s in dt_stocks:
+        industry = s.get('industry', '')
+        results.append({
+            'code': s['code'],
+            'name': s['name'],
+            'change_pct': s['change_pct'],
+            'reason': f"{industry}板块走弱" if industry else "个股利空",
+            'volume': s.get('volume', 0),
+            'close': s['close'],
+            'industry': industry,
+        })
+
+    return results

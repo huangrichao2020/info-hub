@@ -1,16 +1,21 @@
 export type Section =
   | 'investment-calendar'
   | 'trade-desk'
-  | 'main-wave'
   | 'chan-chart'
   | 'concept-board'
   | 'strict-turn-strong'
+  | 'ai-news'
+  | 'trending'
+  | 'article-gen'
   | 'fin-news'
   | 'sectors'
   | 'zt-analysis'
   | 'turn-strong'
   | 'review-report'
+  | 'wechat-search'
   | 'obsession-phase'
+  | 'amazingdata-kline'
+  | 'kline-multi-period'
   | 'cross-validation'
 
 export interface NewsItem {
@@ -428,3 +433,42 @@ export interface ObsessionPhaseStatus {
   last_updated: string
 }
 
+
+// AmazingData K线相关
+export interface AmazingDataKlineItem {
+  code: string
+  timestamp: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  amount: number
+  source?: string
+}
+
+export interface AmazingDataDailyBars {
+  code: string
+  source: string
+  count: number
+  items: AmazingDataKlineItem[]
+}
+
+export interface AmazingDataKlineResponse {
+  code: string
+  period: string
+  source: string
+  count: number
+  items: AmazingDataKlineItem[]
+}
+
+export interface AmazingDataMultiPeriod {
+  code: string
+  trade_date: number
+  source: string
+  series: Record<string, {
+    period: string
+    count: number
+    items: AmazingDataKlineItem[]
+  }>
+}
