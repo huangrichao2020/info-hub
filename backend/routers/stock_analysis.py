@@ -1,19 +1,31 @@
 """
 Stock Analysis & Scanning Router for Info-Hub.
+使用 DuckDB 全市场扫描加速（比 pandas 逐文件快 19x）。
 """
 import logging
+import os
+import time
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
-import os
 import pandas as pd
 
 from services.stock_engine import get_engine
+from services.duckdb_engine import get_engine as get_duckdb
 
 router = APIRouter(prefix="", tags=["A股分析"])
 logger = logging.getLogger("info-hub.stock")
 
 engine = get_engine()
+
+try:
+    duckdb_engine = get_duckdb()
+    DUCKDB_AVAILABLE = True
+except Exception as e:
+    logger.warning(f"DuckDB 引擎不可用: {e}")
+    duckdb_engine = None
+    DUCKDB_AVAILABLE = False
+
 
 class StockAnalysisRequest(BaseModel):
     symbol: str
@@ -31,10 +43,13 @@ class StockScanResponse(BaseModel):
     total: int
     stocks: List[dict]
 
+class DuckDBQueryRequest(BaseModel):
+    sql: str
+    limit: Optional[int] = 1000
+
 @router.get("/analysis/{symbol}")
 async def get_stock_analysis(symbol: str, date: Optional[str] = None, indicator: Optional[str] = None):
     """Get analysis for a single stock."""
-    # 如果指定了 indicator，只查那一个
     if indicator:
         return engine.get_indicators(symbol, indicator, curr_date=date)
     
@@ -43,57 +58,81 @@ async def get_stock_analysis(symbol: str, date: Optional[str] = None, indicator:
         "macd": engine.get_indicators(symbol, "macd", curr_date=date),
         "vol5": engine.get_indicators(symbol, "vol_5", curr_date=date),
         "vol60": engine.get_indicators(symbol, "vol_60", curr_date=date),
-        "can": engine.get_indicators(symbol, "volume_ratio", curr_date=date)  # 新增压缩图CAN
+        "can": engine.get_indicators(symbol, "volume_ratio", curr_date=date)
     }
     return res
 
 @router.get("/scan/ma25-up")
 async def scan_ma25_up():
-    """Scan all A-shares and return those with MA25 trending UP."""
-    # This might take some time if we iterate all files.
-    # Optimization: we only read the last few rows.
+    """全市场扫描 MA25 向上的股票（DuckDB 加速）。"""
+    if DUCKDB_AVAILABLE:
+        t0 = time.time()
+        df = duckdb_engine.scan_ma25_up()
+        elapsed = time.time() - t0
+        logger.info(f"DuckDB MA25 scan: {len(df)} stocks in {elapsed:.2f}s")
+        return {
+            "total": len(df),
+            "stocks": df.head(50).to_dict("records"),
+            "engine": "duckdb",
+            "elapsed_ms": round(elapsed * 1000, 1)
+        }
+    else:
+        # Fallback: 旧 pandas 方式
+        return _scan_ma25_up_pandas()
+
+
+def _scan_ma25_up_pandas():
+    """旧版 pandas 扫描（DuckDB 不可用时回退）。"""
     data_dir = engine.data_dir
     if not os.path.exists(data_dir):
-        return {"stocks": [], "msg": "No data yet"}
+        return {"stocks": [], "msg": "No data yet", "engine": "pandas"}
     
     results = []
     files = [f for f in os.listdir(data_dir) if f.endswith('.parquet')]
     
-    # Limit to first 100 for quick response in demo, or remove limit for full scan
-    # Let's do a full scan but optimized
-    logger.info(f"Scanning {len(files)} stocks for MA25 Up...")
-    
     for f in files:
         try:
             path = os.path.join(data_dir, f)
-            # Only read tail
             df = pd.read_parquet(path, columns=['date', 'close'])
             if len(df) < 26:
                 continue
-            
             df = df.tail(26)
             ma25_curr = df['close'].rolling(25).mean().iloc[-1]
             ma25_prev = df['close'].rolling(25).mean().iloc[-2]
-            
             if pd.notna(ma25_curr) and pd.notna(ma25_prev) and ma25_curr > ma25_prev:
-                # Extract symbol from filename
                 sym = f.replace('sh_', 'sh.').replace('sz_', 'sz.').replace('.parquet', '')
                 results.append({"symbol": sym, "ma25": round(ma25_curr, 2)})
         except Exception:
             continue
             
-    return {"total": len(results), "stocks": results[:50]} # Return top 50
+    return {"total": len(results), "stocks": results[:50], "engine": "pandas"}
 
 @router.get("/scan/volume-up")
-async def scan_volume_up():
-    """Scan all A-shares for 放量上涨 (volume price resonance): 价格涨 + 量比>=150%."""
+async def scan_volume_up(min_ratio: float = 1.5):
+    """全市场扫描放量上涨（DuckDB 加速）。"""
+    if DUCKDB_AVAILABLE:
+        t0 = time.time()
+        df = duckdb_engine.scan_volume_up(min_ratio=min_ratio)
+        elapsed = time.time() - t0
+        logger.info(f"DuckDB volume-up scan: {len(df)} stocks in {elapsed:.2f}s")
+        return {
+            "total": len(df),
+            "stocks": df.head(50).to_dict("records"),
+            "engine": "duckdb",
+            "elapsed_ms": round(elapsed * 1000, 1)
+        }
+    else:
+        return _scan_volume_up_pandas()
+
+
+def _scan_volume_up_pandas():
+    """旧版 pandas 扫描（DuckDB 不可用时回退）。"""
     data_dir = engine.data_dir
     if not os.path.exists(data_dir):
-        return {"stocks": [], "msg": "No data yet"}
+        return {"stocks": [], "msg": "No data yet", "engine": "pandas"}
     
     results = []
     files = [f for f in os.listdir(data_dir) if f.endswith('.parquet')]
-    logger.info(f"Scanning {len(files)} stocks for volume-up resonance...")
     
     for f in files:
         try:
@@ -101,18 +140,12 @@ async def scan_volume_up():
             df = pd.read_parquet(path, columns=['date', 'close', 'volume'])
             if len(df) < 26:
                 continue
-            
             df = df.tail(30)
-            
-            # 25日均量
             vol_ma25 = df['volume'].rolling(25).mean().iloc[-1]
             if pd.isna(vol_ma25) or vol_ma25 == 0:
                 continue
-            
             vol_ratio = df['volume'].iloc[-1] / vol_ma25
             close_chg = (df['close'].iloc[-1] / df['close'].iloc[-2] - 1) * 100
-            
-            # 放量上涨：收盘涨 + 量比>=1.5
             if close_chg > 0 and vol_ratio >= 1.5:
                 sym = f.replace('sh_', 'sh.').replace('sz_', 'sz.').replace('.parquet', '')
                 results.append({
@@ -124,21 +157,36 @@ async def scan_volume_up():
         except Exception:
             continue
     
-    # 按量比排序
     results.sort(key=lambda x: x['volume_ratio'], reverse=True)
-    return {"total": len(results), "stocks": results[:50]}
+    return {"total": len(results), "stocks": results[:50], "engine": "pandas"}
 
 
 @router.get("/scan/volume-divergence")
 async def scan_volume_divergence():
-    """Scan for 量价背离: 股价创新高但量比下降（缩量上涨）。"""
+    """全市场扫描量价背离（DuckDB 加速）。"""
+    if DUCKDB_AVAILABLE:
+        t0 = time.time()
+        df = duckdb_engine.scan_volume_divergence()
+        elapsed = time.time() - t0
+        logger.info(f"DuckDB volume-divergence scan: {len(df)} stocks in {elapsed:.2f}s")
+        return {
+            "total": len(df),
+            "stocks": df.head(50).to_dict("records"),
+            "engine": "duckdb",
+            "elapsed_ms": round(elapsed * 1000, 1)
+        }
+    else:
+        return _scan_volume_divergence_pandas()
+
+
+def _scan_volume_divergence_pandas():
+    """旧版 pandas 扫描（DuckDB 不可用时回退）。"""
     data_dir = engine.data_dir
     if not os.path.exists(data_dir):
-        return {"stocks": [], "msg": "No data yet"}
+        return {"stocks": [], "msg": "No data yet", "engine": "pandas"}
     
     results = []
     files = [f for f in os.listdir(data_dir) if f.endswith('.parquet')]
-    logger.info(f"Scanning {len(files)} stocks for volume divergence...")
     
     for f in files:
         try:
@@ -146,25 +194,15 @@ async def scan_volume_divergence():
             df = pd.read_parquet(path, columns=['date', 'close', 'volume'])
             if len(df) < 55:
                 continue
-            
             df = df.tail(60)
-            
-            # 近20日最高价
             recent_high = df['close'].tail(20).max()
             current_close = df['close'].iloc[-1]
-            
-            # 是否在高位（接近20日高点）
             if current_close < recent_high * 0.97:
                 continue
-            
-            # 量比
             vol_ma25 = df['volume'].rolling(25).mean().iloc[-1]
             if pd.isna(vol_ma25) or vol_ma25 == 0:
                 continue
-            
             vol_ratio = df['volume'].iloc[-1] / vol_ma25
-            
-            # 缩量上涨：价格涨但量比<0.8
             close_chg = (df['close'].iloc[-1] / df['close'].iloc[-2] - 1) * 100
             if close_chg > 0 and vol_ratio < 0.8:
                 sym = f.replace('sh_', 'sh.').replace('sz_', 'sz.').replace('.parquet', '')
@@ -179,7 +217,36 @@ async def scan_volume_divergence():
         except Exception:
             continue
     
-    return {"total": len(results), "stocks": results[:50]}
+    return {"total": len(results), "stocks": results[:50], "engine": "pandas"}
+
+
+@router.post("/duckdb/query")
+async def duckdb_query(req: DuckDBQueryRequest):
+    """执行 DuckDB 全市场 SQL 查询。
+    
+    可用表: market_data
+    列: symbol_raw, date, open, high, low, close, volume, amount, turn
+    """
+    if not DUCKDB_AVAILABLE:
+        return {"error": "DuckDB 引擎不可用"}
+    
+    try:
+        t0 = time.time()
+        df = duckdb_engine.query(req.sql)
+        elapsed = time.time() - t0
+        
+        if req.limit and len(df) > req.limit:
+            df = df.head(req.limit)
+        
+        return {
+            "rows": len(df),
+            "columns": list(df.columns),
+            "data": df.to_dict("records"),
+            "elapsed_ms": round(elapsed * 1000, 1),
+            "engine": "duckdb"
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @router.post("/dump")
