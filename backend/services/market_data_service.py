@@ -1,19 +1,36 @@
 """
 真实市场数据服务
 从东方财富 API 获取实时市场数据，替换交叉验证中的模拟值。
+使用 Key 轮询器管理每日配额（3 Keys × 20 次/天）。
 """
 import logging
 import requests
+import json
 from typing import Dict, Any, Optional
 from datetime import datetime
 
 logger = logging.getLogger("info-hub.market_data")
 
-# 东方财富 API 配置
-EASTMONEY_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Referer": "https://quote.eastmoney.com/",
-}
+# 东方财富 API 配置 — 使用 Key 轮询器
+try:
+    import sys
+    sys.path.insert(0, "/root/hermes-agent/tools")
+    from eastmoney_key_rotator import get_available_key, record_usage
+    _HAS_ROTATOR = True
+except ImportError:
+    _HAS_ROTATOR = False
+    logger.warning("Eastmoney key rotator not found, falling back to static headers")
+
+def _get_em_headers() -> Dict[str, str]:
+    """获取带 Key 的请求头"""
+    if _HAS_ROTATOR:
+        key, headers = get_available_key()
+        if key:
+            return {**headers, "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer": "https://quote.eastmoney.com/"}
+    return {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://quote.eastmoney.com/",
+    }
 
 
 def fetch_north_flow() -> float:
@@ -31,7 +48,7 @@ def fetch_north_flow() -> float:
             "ut": "b2884a393a59ad64002292a3e90d46a5",
             "cb": "jQuery",
         }
-        resp = requests.get(url, params=params, headers=EASTMONEY_HEADERS, timeout=10)
+        resp = requests.get(url, params=params, headers=_get_em_headers(), timeout=10)
         if resp.status_code == 200:
             # 解析 JSONP 响应
             text = resp.text
@@ -58,7 +75,7 @@ def fetch_limit_stats() -> Dict[str, int]:
         resp = requests.get(
             "https://push2ex.eastmoney.com/getTopicZTPool",
             params={"ut": "7eea3edcaed734bea9cb0088a5b3e8b2", "dtp": "1", "sty": "tdcp", "fldt": "1"},
-            headers=EASTMONEY_HEADERS, timeout=10
+            headers=_get_em_headers(), timeout=10
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -70,7 +87,7 @@ def fetch_limit_stats() -> Dict[str, int]:
         resp = requests.get(
             "https://push2ex.eastmoney.com/getTopicDTPool",
             params={"ut": "7eea3edcaed734bea9cb0088a5b3e8b2", "dtp": "1", "sty": "tdcp", "fldt": "1"},
-            headers=EASTMONEY_HEADERS, timeout=10
+            headers=_get_em_headers(), timeout=10
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -94,7 +111,7 @@ def fetch_lianban_stats() -> int:
         resp = requests.get(
             "https://push2ex.eastmoney.com/getTopicZTPool",
             params={"ut": "7eea3edcaed734bea9cb0088a5b3e8b2", "dtp": "1", "sty": "tdcp", "fldt": "1"},
-            headers=EASTMONEY_HEADERS, timeout=10
+            headers=_get_em_headers(), timeout=10
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -121,7 +138,7 @@ def fetch_yesterday_premium() -> float:
         resp = requests.get(
             "https://push2ex.eastmoney.com/getTopicZTPool",
             params={"ut": "7eea3edcaed734bea9cb0088a5b3e8b2", "dtp": "1", "sty": "tdcp", "fldt": "1"},
-            headers=EASTMONEY_HEADERS, timeout=10
+            headers=_get_em_headers(), timeout=10
         )
         if resp.status_code == 200:
             data = resp.json()
