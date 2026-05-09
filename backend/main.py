@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 
 import config  # noqa: F401  触发 sys.path 注入和环境变量加载
 from database import init_db, get_db
@@ -108,6 +109,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── 全局异常处理 ── 防止单个 API 崩溃整个进程 ──────────────────
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """捕获所有未处理异常，返回 500 JSON 而不崩溃进程"""
+    logger.exception(f"[unhandled-error] {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "message": f"服务器内部错误: {type(exc).__name__}"},
+    )
 
 # ── 注册路由 ──────────────────────────────────────────────
 from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis, cross_validation  # noqa: E402

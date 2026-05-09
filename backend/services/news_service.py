@@ -5,6 +5,7 @@ import math
 import re
 import sqlite3
 import logging
+import sys
 from datetime import datetime, timezone
 from config import UWILLBERICH_LATEST_NEWS_JSON, UWILLBERICH_NEWS_DB, UWILLBERICH_SCRIPTS
 
@@ -157,6 +158,25 @@ def get_news_payload(source: str = "", keyword: str = "", hours: int = 24, page:
 
         # 按热度降序
         items.sort(key=lambda x: x["heat_score"], reverse=True)
+        
+        # 集成腾讯新闻 CLI 实时热点作为补充源
+        try:
+            sys.path.insert(0, "/root/ahot-skill")
+            from generator.tencent_news_adapter import fetch_tencent_news
+            tencent_items = fetch_tencent_news("hot", limit=10)
+            for item in tencent_items:
+                items.append({
+                    "title": item.get("title", ""),
+                    "summary": item.get("summary", ""),
+                    "source": item.get("source", "tencent"),
+                    "collected_at": item.get("time", ""),
+                    "url": item.get("url", ""),
+                    "heat_score": 50,  # 默认中等热度
+                })
+            # 重新按热度排序
+            items.sort(key=lambda x: x["heat_score"], reverse=True)
+        except Exception as e:
+            logger.debug(f"Tencent News integration skipped: {e}")
 
         # 分页
         start = (page - 1) * page_size

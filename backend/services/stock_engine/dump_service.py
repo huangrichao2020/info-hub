@@ -2,6 +2,8 @@
 Service for incremental dump of A-share data.
 Uses Baostock.
 """
+import socket
+socket.setdefaulttimeout(15)
 import baostock as bs
 import pandas as pd
 import os
