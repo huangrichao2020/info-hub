@@ -96,6 +96,9 @@ def run_incremental_dump(start_date: str = "2021-01-01", limit: int = None):
                 
                 df_final.to_parquet(file_path, index=False)
                 success += 1
+            elif os.path.exists(file_path):
+                # File exists but no new data — already up to date
+                skipped += 1
             
             if (i + 1) % 500 == 0:
                 logger.info(f"Progress: {i+1}/{len(stocks)}")

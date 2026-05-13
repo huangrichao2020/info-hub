@@ -164,24 +164,61 @@ def save_snapshot(conn, ts: str, stock: dict, data: dict):
 # ── 东财 API ────────────────────────────────────────────
 def fetch_quotes(stocks: list[dict]) -> dict:
     """批量获取实时行情，返回 {code: data}"""
-    secids = ",".join(s["secid"] for s in stocks)
-    url = f"{EASTMONEY_URL}?fltt=2&fields={FIELD_NAMES}&secids={secids}"
+    # 使用腾讯行情接口（东财API在当前网络环境不可达）
+    codes_str = ",".join(
+        f"{'sh' if s['code'].startswith(('6','9')) else 'sz'}{s['code']}"
+        for s in stocks
+    )
+    url = f"https://qt.gtimg.cn/q={codes_str}"
 
     try:
         req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://finance.qq.com/",
         })
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read().decode("gbk")
     except Exception as e:
-        logger.error("东财API请求失败: %s", e)
+        logger.error("腾讯API请求失败: %s", e)
         return {}
 
-    diff = (result.get("data") or {}).get("diff") or []
     quote_map = {}
-    for item in diff:
-        code = str(item.get("f12", "")).zfill(6)
-        quote_map[code] = item
+    for line in raw.strip().split(";"):
+        line = line.strip()
+        if not line or "=" not in line:
+            continue
+        _, value = line.split("=", 1)
+        value = value.strip('"').strip("'")
+        if not value:
+            continue
+        parts = value.split("~")
+        if len(parts) < 40:
+            continue
+        code = parts[2].zfill(6)
+        # 映射到东财字段格式
+        quote_map[code] = {
+            "f2": float(parts[3]) if parts[3] else None,       # 最新价
+            "f3": float(parts[32]) if parts[32] else None,     # 涨跌幅%
+            "f4": float(parts[31]) if parts[31] else None,     # 涨跌额
+            "f12": code,                                        # 股票代码
+            "f14": parts[1],                                    # 股票名称
+            "f15": float(parts[33]) if parts[33] else None,     # 最高
+            "f16": float(parts[34]) if parts[34] else None,     # 最低
+            "f17": float(parts[5]) if parts[5] else None,       # 今开
+            "f18": float(parts[4]) if parts[4] else None,       # 昨收
+            "f20": float(parts[45]) if parts[45] else None,     # 总市值(亿)
+            "f21": float(parts[44]) if parts[44] else None,     # 流通市值(亿)
+            "f43": int(float(parts[6])) if parts[6] else 0,     # 总手
+            "f44": float(parts[38]) if parts[38] else None,     # 换手率
+            "f45": float(parts[49]) if parts[49] else None,     # 量比
+            "f47": float(parts[47]) if parts[47] else None,     # 涨停价
+            "f48": float(parts[48]) if parts[48] else None,     # 跌停价
+            "f62": 0,                                           # 主力净流入(腾讯无)
+            "f184": float(parts[37]) if parts[37] else None,    # 成交额(万)
+            "f100": float(parts[51]) if len(parts) > 51 and parts[51] else None,  # 委比
+            "f71": float(parts[39]) if parts[39] else None,     # 市盈率(动)
+            "f57": code,                                        # 代码冗余
+        }
 
     return quote_map
 
