@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import json
 import os
 
-OUTPUT_DIR = "/root/info-hub/backend/data/invest_calendar"
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "invest_calendar")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 today = datetime.now()

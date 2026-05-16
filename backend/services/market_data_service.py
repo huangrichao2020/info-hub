@@ -13,8 +13,9 @@ logger = logging.getLogger("info-hub.market_data")
 
 # 东方财富 API 配置 — 使用 Key 轮询器
 try:
+    import os
     import sys
-    sys.path.insert(0, "/root/hermes-agent/tools")
+    sys.path.insert(0, os.path.expanduser("~/hermes-new/hermes-agent/tools"))
     from eastmoney_key_rotator import get_available_key, record_usage
     _HAS_ROTATOR = True
 except ImportError:

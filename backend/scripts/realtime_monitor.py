@@ -28,7 +28,7 @@ logging.basicConfig(
 logger = logging.getLogger("realtime-monitor")
 
 # ── 配置 ──────────────────────────────────────────────
-DEFAULT_POOL_FILE = "/root/wiki/entities/stock-pool.md"
+DEFAULT_POOL_FILE = os.path.expanduser("~/wiki/entities/stock-pool.md")
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "realtime_monitor.db")
 EASTMONEY_URL = "https://push2.eastmoney.com/api/qt/ulist.np/get"
 
