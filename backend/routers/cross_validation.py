@@ -47,7 +47,7 @@ async def get_cross_validation():
     """
     market_data = _build_market_data_from_cache()
     result = validator.analyze(market_data)
-    return validator.to_dict(result)
+    return _build_response(result, market_data)
 
 
 @router.post("/cross-validation")
@@ -70,7 +70,33 @@ async def post_cross_validation(req: CrossValidationRequest):
         market_data.setdefault(k, v)
     
     result = validator.analyze(market_data)
-    return validator.to_dict(result)
+    market_data.setdefault("source_quality", "manual")
+    market_data.setdefault("fetched_at", datetime.now().isoformat(timespec="seconds"))
+    return _build_response(result, market_data)
+
+
+def _build_response(result, market_data: dict) -> dict:
+    """Return analysis plus explicit data quality metadata for cron reports."""
+    response = validator.to_dict(result)
+    response["data_quality"] = {
+        "source_quality": market_data.get("source_quality", "unknown"),
+        "fetched_at": market_data.get("fetched_at"),
+        "market_breadth_sample_size": market_data.get("market_breadth_sample_size", 0),
+    }
+    response["market_signals"] = {
+        "north_flow": market_data.get("north_flow", 0),
+        "limit_up": market_data.get("limit_up", 0),
+        "limit_down": market_data.get("limit_down", 0),
+        "consecutive_ban": market_data.get("consecutive_ban", 0),
+        "yesterday_premium": market_data.get("yesterday_premium", 0),
+        "main_theme": market_data.get("main_theme", ""),
+        "theme_limit_up": market_data.get("theme_limit_up", 0),
+        "theme_tiers": market_data.get("theme_tiers", 0),
+        "index_trend": market_data.get("index_trend", "sideways"),
+        "index_avg_change": market_data.get("index_avg_change", 0),
+        "ma_alignment": market_data.get("ma_alignment", False),
+    }
+    return response
 
 
 def _build_market_data_from_cache() -> dict:
@@ -118,8 +144,13 @@ def _build_market_data_from_cache() -> dict:
                     
                     if volume_changes:
                         real_data['volume_change'] = sum(volume_changes) / len(volume_changes)
-                    real_data['ma_alignment'] = ma_aligned > total * 0.6 if total > 0 else False
-                    real_data['index_trend'] = "up" if ma_aligned > total * 0.6 else "sideways"
+                    breadth_ma = ma_aligned > total * 0.6 if total > 0 else False
+                    real_data['market_breadth_ma_alignment'] = breadth_ma
+                    real_data['market_breadth_sample_size'] = total
+                    # Do not overwrite the live index trend from Tencent unless no live trend exists.
+                    real_data.setdefault('ma_alignment', breadth_ma)
+                    if not real_data.get('index_avg_change'):
+                        real_data['index_trend'] = "up" if breadth_ma else "sideways"
             
             return real_data
     except Exception as e:

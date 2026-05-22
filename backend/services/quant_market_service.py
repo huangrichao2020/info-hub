@@ -21,6 +21,8 @@ IWENCAI_API_KEY = ""
 # AmazingData 配置
 AMAZINGDATA_LAN_BASE_URL = os.environ.get("AMAZINGDATA_LAN_BASE_URL", "http://192.168.5.9:7713")
 AMAZINGDATA_PUBLIC_BASE_URL = os.environ.get("AMAZINGDATA_PUBLIC_BASE_URL", "https://www.ai10088.com/amazingdata")
+# 本地 SSH 隧道地址（Windows GA -> 阿里云）
+AMAZINGDATA_HTTP_TUNNEL_URL = os.environ.get("AMAZINGDATA_HTTP_TUNNEL_URL", "http://127.0.0.1:17713")
 _AMAZINGDATA_TOKEN = os.environ.get("AMAZINGDATA_PUBLIC_RELAY_TOKEN", "").strip()
 _AMAZINGDATA_TOKEN_FILE = os.environ.get("AMAZINGDATA_PUBLIC_RELAY_TOKEN_FILE", "")
 
@@ -32,7 +34,7 @@ def _load_amazingdata_token() -> str:
     if _AMAZINGDATA_TOKEN_FILE and os.path.exists(_AMAZINGDATA_TOKEN_FILE):
         with open(_AMAZINGDATA_TOKEN_FILE, "r") as f:
             return f.read().strip()
-    for env_path in ["/root/hermes-agent/.env", os.path.expanduser("~/.hermes/.env")]:
+    for env_path in [os.path.join(os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes")), ".env")]:
         if os.path.exists(env_path):
             for line in open(env_path, encoding="utf-8"):
                 line = line.strip()
@@ -48,14 +50,7 @@ async def _fetch_amazingdata_kline(
     end_date: int | None = None,
     lookback_days: int = 30,
 ) -> list[dict]:
-    """从 AmazingData 获取 K 线数据"""
-    token = _load_amazingdata_token()
-    if not token:
-        import logging
-        logging.getLogger("info-hub.quant-market").warning("AmazingData token not configured")
-        return []
-
-    base_url = AMAZINGDATA_PUBLIC_BASE_URL
+    """从 AmazingData 获取 K 线数据 — 三级降级：本地隧道 → 公网 relay → 空"""
     params: dict = {"code": code.upper(), "period": period}
     if begin_date:
         params["begin_date"] = str(begin_date)
@@ -65,21 +60,47 @@ async def _fetch_amazingdata_kline(
         params["end_date"] = str(end_date)
 
     endpoint = "/api/v1/trading/daily-bars" if period == "day" else "/api/v1/trading/kline"
-    url = f"{base_url}{endpoint}"
 
-    import httpx
+    # 降级 1: 本地 SSH 隧道 (无需 token)
     try:
+        import httpx
+        url = f"{AMAZINGDATA_HTTP_TUNNEL_URL}{endpoint}"
+        async with httpx.AsyncClient(timeout=15, trust_env=False) as client:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            payload = resp.json()
+            data = payload.get("data") or {}
+            items = data.get("items") or []
+            if items:
+                return _parse_ad_items(code, items)
+            logger.debug("AmazingData tunnel returned empty items, trying public relay")
+    except Exception as exc:
+        logger.debug("AmazingData tunnel failed: %s", exc)
+
+    # 降级 2: 公网 relay (需 token)
+    token = _load_amazingdata_token()
+    if not token:
+        logger.warning("AmazingData token not configured, both sources exhausted")
+        return []
+
+    try:
+        import httpx
+        url = f"{AMAZINGDATA_PUBLIC_BASE_URL}{endpoint}"
         async with httpx.AsyncClient(timeout=20, trust_env=False) as client:
             resp = await client.get(url, params=params, headers={"Authorization": f"Bearer {token}"})
             resp.raise_for_status()
             payload = resp.json()
     except Exception as exc:
-        import logging
-        logging.getLogger("info-hub.quant-market").warning("AmazingData K线获取失败 %s: %s", code, exc)
+        logger.warning("AmazingData public relay failed %s: %s", code, exc)
         return []
 
     data = payload.get("data") or {}
     items = data.get("items") or []
+    return _parse_ad_items(code, items)
+
+
+def _parse_ad_items(code: str, items: list) -> list[dict]:
+    """解析 AmazingData 返回的 items"""
     result_items = []
     for item in items:
         ts = item.get("trade_date") or item.get("date") or item.get("timestamp", "")

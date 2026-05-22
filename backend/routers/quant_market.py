@@ -9,7 +9,10 @@ from services.quant_market_service import (
     get_amazingdata_capabilities,
     get_amazingdata_daily_bars,
     _fetch_amazingdata_kline,
+    AMAZINGDATA_HTTP_TUNNEL_URL,
+    AMAZINGDATA_PUBLIC_BASE_URL,
 )
+import httpx
 
 router = APIRouter()
 
@@ -121,3 +124,39 @@ async def amazingdata_multi_period(
         "source": "amazingdata",
         "series": results,
     }
+
+
+@router.get("/amazingdata/source-status")
+async def amazingdata_source_status():
+    """检查 AmazingData 各数据源健康状态（本地隧道 vs 公网 relay）"""
+    status = {
+        "tunnel": {"url": AMAZINGDATA_HTTP_TUNNEL_URL, "status": "unknown", "items": 0},
+        "public_relay": {"url": AMAZINGDATA_PUBLIC_BASE_URL, "status": "unknown", "items": 0},
+    }
+
+    # 检查本地隧道
+    try:
+        async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
+            resp = await client.get(f"{AMAZINGDATA_HTTP_TUNNEL_URL}/health")
+            status["tunnel"]["status"] = "healthy" if resp.status_code == 200 else f"http_{resp.status_code}"
+            status["tunnel"]["version"] = resp.json().get("version", "unknown")
+    except Exception as e:
+        status["tunnel"]["status"] = f"error: {str(e)[:50]}"
+
+    # 检查公网 relay
+    try:
+        async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
+            resp = await client.get(f"{AMAZINGDATA_PUBLIC_BASE_URL}/health")
+            status["public_relay"]["status"] = "healthy" if resp.status_code == 200 else f"http_{resp.status_code}"
+    except Exception as e:
+        status["public_relay"]["status"] = f"error: {str(e)[:50]}"
+
+    # 数据验证（用平安银行测试）
+    try:
+        from services.quant_market_service import _fetch_amazingdata_kline
+        items = await _fetch_amazingdata_kline("000001.SZ", "day", lookback_days=5)
+        status["test_query"] = {"code": "000001.SZ", "items_returned": len(items)}
+    except Exception as e:
+        status["test_query"] = {"error": str(e)[:100]}
+
+    return status

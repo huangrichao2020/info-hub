@@ -6,6 +6,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Query, Depends
 from database import get_db
+
+
+def get_db_conn():
+    with get_db() as conn:
+        yield conn
 from services.wechat_crud import WechatCRUD
 
 logger = logging.getLogger("info-hub.wechat-api")
@@ -19,7 +24,7 @@ def search_articles(
     category: Optional[str] = Query(None, description="分类（股票、复盘、盘前、热点）"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
-    db=Depends(get_db),
+    db=Depends(get_db_conn),
 ):
     """
     搜索公众号文章
@@ -42,7 +47,7 @@ def get_account_articles(
     account_id: int,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    db=Depends(get_db),
+    db=Depends(get_db_conn),
 ):
     """
     获取特定公众号的文章列表
@@ -61,7 +66,7 @@ def get_account_articles(
 @router.get("/accounts/{account_id}")
 def get_account(
     account_id: int,
-    db=Depends(get_db),
+    db=Depends(get_db_conn),
 ):
     """
     获取公众号详情
@@ -76,7 +81,7 @@ def get_account(
 @router.get("/trending-topics")
 def get_trending_topics(
     limit: int = Query(10, ge=1, le=50),
-    db=Depends(get_db),
+    db=Depends(get_db_conn),
 ):
     """
     获取热门话题
@@ -88,7 +93,7 @@ def get_trending_topics(
 @router.get("/recommended-accounts")
 def get_recommended_accounts(
     limit: int = Query(10, ge=1, le=50),
-    db=Depends(get_db),
+    db=Depends(get_db_conn),
 ):
     """
     获取推荐公众号
@@ -98,14 +103,14 @@ def get_recommended_accounts(
 
 
 @router.get("/categories")
-def get_categories(db=Depends(get_db)):
+def get_categories(db=Depends(get_db_conn)):
     """获取所有文章分类"""
     categories = WechatCRUD.get_categories(db)
     return {"categories": categories}
 
 
 @router.get("/statistics")
-def get_statistics(db=Depends(get_db)):
+def get_statistics(db=Depends(get_db_conn)):
     """获取统计信息"""
     return WechatCRUD.get_statistics(db)
 
@@ -113,7 +118,7 @@ def get_statistics(db=Depends(get_db)):
 @router.post("/cleanup")
 def cleanup_old_articles(
     days: int = Query(30, ge=1, le=365),
-    db=Depends(get_db),
+    db=Depends(get_db_conn),
 ):
     """
     清理旧文章

@@ -77,12 +77,14 @@ async def collect_financial_news() -> int:
     """触发一次财经新闻采集，返回采集条数"""
     try:
         import news_collector
-        count = await asyncio.to_thread(
+        result = await asyncio.to_thread(
             news_collector.poll_once,
             UWILLBERICH_NEWS_DB,
             UWILLBERICH_SCRIPTS,
         )
-        return count or 0
+        if isinstance(result, dict):
+            return int(result.get("new_count") or result.get("total_recent") or 0)
+        return int(result or 0)
     except Exception as e:
         logger.error(f"采集失败: {e}")
         return 0

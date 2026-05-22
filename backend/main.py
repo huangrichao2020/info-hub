@@ -122,7 +122,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # ── 注册路由 ──────────────────────────────────────────────
-from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis, cross_validation, a_stock_data  # noqa: E402
+from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis, cross_validation, a_stock_data, signal, gbrain  # noqa: E402
 
 
 # ── 版本信息 ──────────────────────────────────────────────
@@ -179,6 +179,7 @@ app.include_router(fin_news.router, prefix="/api/fin-news", tags=["财经新闻"
 app.include_router(hot_sectors.router, prefix="/api/sectors", tags=["热门板块"])
 app.include_router(quant_market.router, prefix="/api/amazingdata-market", tags=["AmazingData市场数据"])
 app.include_router(quant_market.router, prefix="/api/quant-market", tags=["量化市场数据兼容"])
+app.include_router(signal.router, prefix="/api/signal", tags=["信号层"])
 app.include_router(zt_analysis.router, prefix="/api/zt", tags=["涨停分析"])
 app.include_router(turn_strong.router, prefix="/api/turn-strong", tags=["转强选股"])
 app.include_router(article_gen.router, prefix="/api/article", tags=["文章生成"])
@@ -192,6 +193,7 @@ app.include_router(obsession_phase.router, prefix="/api/obsession-phase", tags=[
 app.include_router(stock_analysis.router, prefix="/api/stock", tags=["A股分析引擎"])
 app.include_router(cross_validation.router, prefix="/api/stock", tags=["交叉验证"])
 app.include_router(a_stock_data.router, prefix="/api/stock", tags=["A股全栈数据"])
+app.include_router(gbrain.router, prefix="/api/gbrain", tags=["gbrain compatibility"])
 app.include_router(wechat.router, prefix="", tags=["微信公众号搜索"])
 
 

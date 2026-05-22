@@ -2,6 +2,7 @@
 import hashlib
 import logging
 import math
+import os
 import re
 from datetime import datetime, timezone
 
@@ -135,14 +136,15 @@ AI_KEYWORDS = ["AI", "人工智能", "大模型", "LLM", "GPT", "Claude", "机�
                "算力", "AIGC", "Sora", "OpenAI", "Anthropic", "DeepSeek", "智能体", "Agent"]
 
 AI_RSS_FEEDS = [
-    ("https://news.google.com/rss/search?q=AI+artificial+intelligence&hl=zh-CN&gl=CN&ceid=CN:zh-Hans", "google-ai"),
     ("https://36kr.com/feed", "36kr"),
 ]
+if os.environ.get("INFOHUB_ENABLE_GOOGLE_RSS") == "1":
+    AI_RSS_FEEDS.append(("https://news.google.com/rss/search?q=AI+artificial+intelligence&hl=zh-CN&gl=CN&ceid=CN:zh-Hans", "google-ai"))
 
 
 async def collect_ai_news() -> int:
     count = 0
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=20, follow_redirects=True, trust_env=False) as client:
         for feed_url, source in AI_RSS_FEEDS:
             try:
                 resp = await client.get(feed_url)
@@ -159,7 +161,7 @@ async def collect_ai_news() -> int:
                         )
                     count += _save_items(items)
             except Exception as e:
-                logger.warning(f"RSS采集失败 [{source}]: {e}")
+                logger.warning(f"RSS采集失败 [{source}]: {e!r}")
     return count
 
 

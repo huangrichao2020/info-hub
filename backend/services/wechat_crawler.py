@@ -45,8 +45,16 @@ class WechatCrawler:
         """
         self.db = db_conn
         self.client = httpx.AsyncClient(
-            timeout=30.0,
+            timeout=6.0,
             headers=self.JINA_HEADERS,
+            follow_redirects=True,
+            trust_env=False,
+        )
+        self.direct_client = httpx.AsyncClient(
+            timeout=15.0,
+            follow_redirects=True,
+            trust_env=False,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safari/537.36"},
         )
 
     async def search_wechat_articles(
@@ -106,21 +114,28 @@ class WechatCrawler:
 
         try:
             logger.info(f"正在搜索 {platform_config['name']}: {keyword}")
-            response = await self.client.get(self.JINA_READER_URL + search_url)
-            response.raise_for_status()
-
-            text_content = response.json().get("content", "")
             parser_method = getattr(self, platform_config["result_selector"], None)
-
-            if parser_method:
-                articles = parser_method(text_content, keyword, max_results)
-                return articles
-            else:
+            if not parser_method:
                 logger.warning(f"未找到平台 {platform} 的解析方法")
                 return []
 
+            text_content = ""
+            try:
+                response = await self.client.get(self.JINA_READER_URL + search_url)
+                response.raise_for_status()
+                text_content = response.json().get("content", "")
+                articles = parser_method(text_content, keyword, max_results)
+                if articles:
+                    return articles
+            except Exception as jina_error:
+                logger.warning(f"Jina 搜索 {platform_config['name']} 失败，尝试直连: {jina_error!r}")
+
+            response = await self.direct_client.get(search_url)
+            response.raise_for_status()
+            return parser_method(response.text, keyword, max_results)
+
         except Exception as e:
-            logger.error(f"搜索 {platform_config['name']} 失败: {e}")
+            logger.error(f"搜索 {platform_config['name']} 失败: {e!r}")
             return []
 
     def parse_sogou_results(
@@ -131,6 +146,36 @@ class WechatCrawler:
         注意：由于 Jina Reader 返回纯文本，需要启发式解析
         """
         articles = []
+        if "news-list" in text or "sogou_vr_11002601_title" in text:
+            import html
+            import re
+            blocks = re.findall(r'<li[^>]+id="sogou_vr_11002601_box_\d+".*?</li>', text, flags=re.S)
+            for block in blocks[:max_results]:
+                title_match = re.search(r'<a[^>]+href="([^"]+)"[^>]+uigs="article_title_\d+"[^>]*>(.*?)</a>', block, flags=re.S)
+                if not title_match:
+                    continue
+                href, title_html = title_match.groups()
+                title = re.sub(r'<!--.*?-->|<.*?>', '', title_html, flags=re.S)
+                title = html.unescape(title).strip()
+                summary_match = re.search(r'<p class="txt-info"[^>]*>(.*?)</p>', block, flags=re.S)
+                summary = ""
+                if summary_match:
+                    summary = re.sub(r'<!--.*?-->|<.*?>', '', summary_match.group(1), flags=re.S)
+                    summary = html.unescape(summary).strip()
+                author_match = re.search(r'<span class="all-time-y2">(.*?)</span>', block, flags=re.S)
+                author = html.unescape(re.sub(r'<.*?>', '', author_match.group(1))).strip() if author_match else "搜狗微信"
+                if href.startswith("/"):
+                    href = "https://weixin.sogou.com" + href.replace("&amp;", "&")
+                articles.append({
+                    "title": title,
+                    "summary": summary,
+                    "url": href,
+                    "source": author or "搜狗微信",
+                    "publish_time": None,
+                    "keywords": {"tags": [keyword]},
+                })
+            return articles[:max_results]
+
         lines = text.strip().split("\n")
 
         current_article = {}
@@ -375,6 +420,7 @@ class WechatCrawler:
     async def close(self):
         """关闭 HTTP 客户端"""
         await self.client.aclose()
+        await self.direct_client.aclose()
 
 
 async def run_wechat_crawler(db_conn) -> Dict:

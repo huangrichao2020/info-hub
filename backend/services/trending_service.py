@@ -59,7 +59,7 @@ _XHS_HEADERS = {
 async def collect_trending() -> int:
     """采集六平台热搜，返回新增条数"""
     count = 0
-    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True, trust_env=False) as client:
         # 通用四平台
         for platform, url in PLATFORM_APIS.items():
             try:
