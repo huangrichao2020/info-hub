@@ -122,7 +122,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # ── 注册路由 ──────────────────────────────────────────────
-from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis, cross_validation, a_stock_data, signal, gbrain  # noqa: E402
+from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis, cross_validation, a_stock_data, signal, gbrain, decision  # noqa: E402
 
 
 # ── 版本信息 ──────────────────────────────────────────────
@@ -194,6 +194,7 @@ app.include_router(stock_analysis.router, prefix="/api/stock", tags=["A股分析
 app.include_router(cross_validation.router, prefix="/api/stock", tags=["交叉验证"])
 app.include_router(a_stock_data.router, prefix="/api/stock", tags=["A股全栈数据"])
 app.include_router(gbrain.router, prefix="/api/gbrain", tags=["gbrain compatibility"])
+app.include_router(decision.router, prefix="/api/decision", tags=["决策引擎"])
 app.include_router(wechat.router, prefix="", tags=["微信公众号搜索"])
 
 

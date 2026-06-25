@@ -82,7 +82,38 @@ def setup_scheduler():
         id="market_cache_update",
         name="市场行情缓存更新",
     )
-    logger.info("定时任务已配置完成")
+    # ── 决策引擎定时任务 ──────────────────────────────
+    # 盘前作战报告 - 交易日 09:00
+    scheduler.add_job(
+        _run_pre_market_report,
+        "cron",
+        day_of_week="mon-fri",
+        hour=9,
+        minute=0,
+        id="pre_market_report",
+        name="盘前作战报告",
+    )
+    # 盘中快报 - 交易日 09:35-15:00 每5分钟
+    scheduler.add_job(
+        _run_intraday_alert,
+        "cron",
+        day_of_week="mon-fri",
+        hour="9-14",
+        minute="*/5",
+        id="intraday_alert",
+        name="盘中快报",
+    )
+    # 盘后复盘报告 - 交易日 15:30
+    scheduler.add_job(
+        _run_post_market_report,
+        "cron",
+        day_of_week="mon-fri",
+        hour=15,
+        minute=30,
+        id="post_market_report",
+        name="盘后复盘报告",
+    )
+    logger.info("定时任务已配置完成（含决策引擎）")
 
 
 async def _collect_fin_news():
@@ -194,3 +225,44 @@ async def _update_market_cache():
             logger.error(f"市场行情缓存更新失败: {result.stderr}")
     except Exception as e:
         logger.error(f"市场行情缓存更新失败: {e}")
+
+
+# ── 决策引擎任务 ──────────────────────────────────────────
+
+async def _run_pre_market_report():
+    """盘前作战报告"""
+    try:
+        from services.decision_engine import run_pre_market
+        report = await run_pre_market()
+        logger.info(f"盘前报告生成完成 ({len(report)} 字符)")
+    except Exception as e:
+        logger.error(f"盘前报告生成失败: {e}")
+
+
+async def _run_intraday_alert():
+    """盘中快报"""
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        cn_tz = ZoneInfo("Asia/Shanghai")
+        now = datetime.now(cn_tz)
+        
+        # 只在盘中时段执行 (9:30-15:00)
+        if not (9 <= now.hour < 15 or (now.hour == 9 and now.minute >= 30)):
+            return
+        
+        from services.decision_engine import run_intraday
+        report = await run_intraday()
+        logger.info(f"盘中快报生成完成 ({len(report)} 字符)")
+    except Exception as e:
+        logger.error(f"盘中快报生成失败: {e}")
+
+
+async def _run_post_market_report():
+    """盘后复盘报告"""
+    try:
+        from services.decision_engine import run_post_market
+        report = await run_post_market()
+        logger.info(f"盘后复盘完成 ({len(report)} 字符)")
+    except Exception as e:
+        logger.error(f"盘后复盘生成失败: {e}")
