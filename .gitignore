@@ -75,7 +75,9 @@ report-search/
 研报搜索/
 科技炒作与基本面/
 竞争格局分析/
-股票研究/
+# 股票研究/daily-chance/ (每日机会扫描归档，每日更新到 git)
+# 仅忽略其中的 weekly-outlook 大文件目录
+股票研究/**/weekly-outlook/
 融资摘要/
 行业数据查询/
 行业概览/

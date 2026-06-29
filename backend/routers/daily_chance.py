@@ -1,6 +1,7 @@
 """
 每日 S/A/B 机会扫描路由
 """
+import logging
 from datetime import datetime
 from typing import Any, Dict
 
@@ -10,9 +11,8 @@ from services.daily_chance_scanner import (
     scan_daily_chance,
     get_stock_detail_for_chance,
 )
-from utils.logger import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/daily-chance", tags=["daily-chance"])
 
