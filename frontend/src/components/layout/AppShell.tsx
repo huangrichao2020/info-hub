@@ -11,6 +11,7 @@ const PANELS = {
   'trade-desk': lazy(() => import('../dashboard/TradeDeskPanel')),
   'main-wave': lazy(() => import('../dashboard/MainWavePanel')),
   'cross-validation': lazy(() => import('../cross-validation/CrossValidationPanel')),
+  'trading-system': lazy(() => import('../trading-system/TradingSystemPanel')),
   'investment-calendar': lazy(() => import('../investment-calendar/InvestmentCalendarPanel')),
   'chan-chart': lazy(() => import('../chan/ChanChartPanel')),
   'concept-board': lazy(() => import('../concept-board/ConceptBoardPanel')),

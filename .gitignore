@@ -102,3 +102,13 @@ README 2.md
 *搜盘/
 *资料查询/
 公告搜索/
+
+# Trading 系统数据归档
+weekly-outlook/
+
+# 临时预览文件
+social-preview.html
+social-preview-v2.html
+
+# Historical 数据散文件（用 SQLite 替代）
+backend/data/historical/

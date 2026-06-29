@@ -169,6 +169,161 @@ CREATE TABLE IF NOT EXISTS obsession_signals_history (
     market_snapshot_json TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_obsession_history_recorded ON obsession_signals_history(recorded_at DESC);
+
+-- ── 交易系统专用表 ────────────────────────────────────────────────────
+
+-- 每日市场快照（定时采集）
+CREATE TABLE IF NOT EXISTS market_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_time TEXT NOT NULL,
+    trade_date TEXT NOT NULL,
+    shanghai_close REAL,
+    shanghai_change_pct REAL,
+    chuangye_close REAL,
+    chuangye_change_pct REAL,
+    aspect_count INTEGER DEFAULT 0,
+    zt_count INTEGER DEFAULT 0,
+    dt_count INTEGER DEFAULT 0,
+    limit_up_break_count INTEGER DEFAULT 0,
+    main_flow TEXT,
+    market_status TEXT,
+    financial_tier TEXT,
+    breadth INTEGER DEFAULT 0,
+    raw_json TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_snap_trade_date ON market_snapshots(trade_date DESC);
+CREATE INDEX IF NOT EXISTS idx_snap_time ON market_snapshots(snapshot_time DESC);
+
+-- 市场信号记录（住相五维 + 执念阶段）
+CREATE TABLE IF NOT EXISTS market_signals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_id INTEGER,
+    recorded_at TEXT NOT NULL,
+    trade_date TEXT NOT NULL,
+    obsession_phase TEXT NOT NULL,
+    phase_label TEXT NOT NULL,
+    signal_count INTEGER DEFAULT 0,
+    signals_json TEXT NOT NULL,
+    confidence_score REAL,
+    action_suggestion TEXT,
+    position_limit_pct INTEGER DEFAULT 100,
+    market_status TEXT,
+    FOREIGN KEY (snapshot_id) REFERENCES market_snapshots(id)
+);
+CREATE INDEX IF NOT EXISTS idx_signal_trade_date ON market_signals(trade_date DESC);
+CREATE INDEX IF NOT EXISTS idx_signal_recorded ON market_signals(recorded_at DESC);
+
+-- 持仓管理
+CREATE TABLE IF NOT EXISTS positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stock_code TEXT NOT NULL,
+    stock_name TEXT NOT NULL,
+    trade_date TEXT NOT NULL,
+    position_type TEXT NOT NULL,
+    shares INTEGER DEFAULT 0,
+    avg_cost REAL DEFAULT 0,
+    current_price REAL DEFAULT 0,
+    profit_pct REAL DEFAULT 0,
+    stop_loss_price REAL,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_pos_trade_date ON positions(trade_date);
+CREATE INDEX IF NOT EXISTS idx_pos_stock ON positions(stock_code);
+
+-- 股票池（自选/关注）
+CREATE TABLE IF NOT EXISTS watchlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stock_code TEXT UNIQUE NOT NULL,
+    stock_name TEXT NOT NULL,
+    added_reason TEXT,
+    target_price REAL,
+    stop_loss_price REAL,
+    tags TEXT,
+    phase TEXT,
+    status TEXT DEFAULT 'active',
+    added_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_watch_status ON watchlist(status);
+
+-- 筛选记录
+CREATE TABLE IF NOT EXISTS screening_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trade_date TEXT NOT NULL,
+    run_time TEXT NOT NULL,
+    market_status TEXT,
+    obsession_phase TEXT,
+    candidates_json TEXT NOT NULL,
+    top_sectors_json TEXT,
+    filter_criteria TEXT,
+    score_threshold INTEGER DEFAULT 60,
+    total_candidates INTEGER DEFAULT 0,
+    final_picks INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'done',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_screen_trade_date ON screening_runs(trade_date DESC);
+
+-- 筛选候选股明细
+CREATE TABLE IF NOT EXISTS screening_candidates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    stock_code TEXT NOT NULL,
+    stock_name TEXT NOT NULL,
+    sector TEXT,
+    score INTEGER DEFAULT 0,
+    tier TEXT,
+    zhangting_days INTEGER DEFAULT 0,
+    turnover_rate REAL,
+    main_net_inflow REAL,
+    reason TEXT,
+    selection_level TEXT,
+    FOREIGN KEY (run_id) REFERENCES screening_runs(id)
+);
+CREATE INDEX IF NOT EXISTS idx_cand_run ON screening_candidates(run_id);
+
+-- 回测记录
+CREATE TABLE IF NOT EXISTS backtest_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_time TEXT NOT NULL,
+    stock_code TEXT NOT NULL,
+    stock_name TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    signal_type TEXT NOT NULL,
+    entry_price REAL,
+    exit_price REAL,
+    holding_days INTEGER DEFAULT 0,
+    profit_pct REAL DEFAULT 0,
+    max_drawdown REAL DEFAULT 0,
+    win_rate REAL DEFAULT 0,
+    signal_detail TEXT,
+    verdict TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_bt_stock ON backtest_runs(stock_code);
+CREATE INDEX IF NOT EXISTS idx_bt_time ON backtest_runs(run_time DESC);
+
+-- 每日操作记录
+CREATE TABLE IF NOT EXISTS trade_journal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trade_date TEXT NOT NULL,
+    action TEXT NOT NULL,
+    stock_code TEXT,
+    stock_name TEXT,
+    price REAL,
+    shares INTEGER,
+    amount REAL,
+    reason TEXT,
+    result TEXT,
+    pnl REAL DEFAULT 0,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_journal_date ON trade_journal(trade_date DESC);
 """
 
 

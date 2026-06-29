@@ -192,6 +192,15 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: ShieldCheck,
     group: 'core',
   },
+  'trading-system': {
+    key: 'trading-system',
+    label: '交易系统',
+    shortLabel: '系统',
+    description: '住相五维 + 金融三级表 + 执念六阶段量化 · 主升浪捕捉系统',
+    dotColor: 'var(--color-green)',
+    icon: Zap,
+    group: 'core',
+  },
 }
 
 export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: string }[] = [
@@ -209,6 +218,7 @@ export const SECTION_ORDER: Section[] = [
   'review-report',
   'strict-turn-strong',
   'turn-strong',
+  'trading-system',
   'fin-news',
   'sectors',
   'zt-analysis',

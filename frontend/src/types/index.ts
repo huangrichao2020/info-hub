@@ -17,6 +17,7 @@ export type Section =
   | 'amazingdata-kline'
   | 'kline-multi-period'
   | 'cross-validation'
+  | 'trading-system'
 
 export interface NewsItem {
   id: string

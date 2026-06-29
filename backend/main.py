@@ -111,6 +111,57 @@ app.add_middleware(
 )
 
 
+# ── 全局 numpy/pandas JSON 兼容 ─────────────────────────────
+import json as _json
+import numpy as _np
+import fastapi.encoders as _enc
+
+# 包装默认 encoder，让 numpy 类型自动转原生
+_orig_default = _enc.jsonable_encoder
+
+def _np_safe(obj):
+    if isinstance(obj, (_np.integer, _np.int64, _np.int32)):
+        return int(obj)
+    if isinstance(obj, (_np.floating, _np.float64, _np.float32)):
+        return float(obj)
+    if isinstance(obj, (_np.bool_, _np.bool)):
+        return bool(obj)
+    if isinstance(obj, _np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {k: _np_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_np_safe(i) for i in obj]
+    return obj
+
+
+def _safe_encoder(obj, **kw):
+    return _orig_default(_np_safe(obj), **kw)
+
+
+_enc.jsonable_encoder = _safe_encoder
+import fastapi
+fastapi.jsonable_encoder = _safe_encoder
+# 关键：替换 fastapi.routing.serialize_response 引用的 jsonable_encoder
+import fastapi.routing
+fastapi.routing.jsonable_encoder = _safe_encoder
+
+
+# ── 全局 requests 超时补丁 ─────────────────────────────────
+# 直连模式：放宽到 10s read timeout，新浪/腾讯接口本身就要 5-20s
+import requests as _requests
+
+_orig_session_request = _requests.Session.request
+
+def _patched_request(self, method, url, **kwargs):
+    if "timeout" not in kwargs or kwargs["timeout"] is None:
+        kwargs["timeout"] = (5, 15)  # connect 5s, read 15s
+    return _orig_session_request(self, method, url, **kwargs)
+
+_requests.Session.request = _patched_request
+print("[startup] requests.Session.request monkey-patched with default timeout=(5, 15)")
+
+
 # ── 全局异常处理 ── 防止单个 API 崩溃整个进程 ──────────────────
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -122,7 +173,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # ── 注册路由 ──────────────────────────────────────────────
-from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis, cross_validation, a_stock_data, signal, gbrain, decision  # noqa: E402
+from routers import chan, evidence, fin_news, hot_sectors, zt_analysis, article_gen, review_report, ai_news, trending, viral_content, turn_strong, quant_market, assistant, investment_calendar, wechat, obsession_phase, stock_analysis, cross_validation, a_stock_data, trading  # noqa: E402
 
 
 # ── 版本信息 ──────────────────────────────────────────────
@@ -179,7 +230,6 @@ app.include_router(fin_news.router, prefix="/api/fin-news", tags=["财经新闻"
 app.include_router(hot_sectors.router, prefix="/api/sectors", tags=["热门板块"])
 app.include_router(quant_market.router, prefix="/api/amazingdata-market", tags=["AmazingData市场数据"])
 app.include_router(quant_market.router, prefix="/api/quant-market", tags=["量化市场数据兼容"])
-app.include_router(signal.router, prefix="/api/signal", tags=["信号层"])
 app.include_router(zt_analysis.router, prefix="/api/zt", tags=["涨停分析"])
 app.include_router(turn_strong.router, prefix="/api/turn-strong", tags=["转强选股"])
 app.include_router(article_gen.router, prefix="/api/article", tags=["文章生成"])
@@ -193,9 +243,8 @@ app.include_router(obsession_phase.router, prefix="/api/obsession-phase", tags=[
 app.include_router(stock_analysis.router, prefix="/api/stock", tags=["A股分析引擎"])
 app.include_router(cross_validation.router, prefix="/api/stock", tags=["交叉验证"])
 app.include_router(a_stock_data.router, prefix="/api/stock", tags=["A股全栈数据"])
-app.include_router(gbrain.router, prefix="/api/gbrain", tags=["gbrain compatibility"])
-app.include_router(decision.router, prefix="/api/decision", tags=["决策引擎"])
 app.include_router(wechat.router, prefix="", tags=["微信公众号搜索"])
+app.include_router(trading.router, prefix="/api/trading", tags=["交易系统"])
 
 
 @app.post("/api/deploy")
