@@ -36,6 +36,20 @@ log "  ✅ data.json 已保存 ($(wc -c < $ARCHIVE_DIR/data.json) bytes)"
 log "Step 2: 生成 HTML 报告"
 python3 "$SCRIPTS_DIR/gen_daily_chance_report.py" "$ARCHIVE_DIR/data.json" 2>&1 | tee -a "$LOG_FILE"
 
+# ===== Step 2.5: 同步到 Obsidian vault =====
+log "Step 2.5: 同步到 Obsidian vault (Karpathy LLM Wiki 范式)"
+if command -v python3 >/dev/null 2>&1; then
+  # 用 exec 包装避免 Python 3.14 中文路径问题
+  python3 -c "
+import sys
+sys.path.insert(0, '$SCRIPTS_DIR')
+exec(open('$SCRIPTS_DIR/obsidian_sync.py').read())
+" "$ARCHIVE_DIR/data.json" 2>&1 | tee -a "$LOG_FILE"
+  log "  ✅ Obsidian 同步完成"
+else
+  log "  ⚠️ python3 未找到，跳过 Obsidian 同步"
+fi
+
 # ===== Step 3: 检查是否有变化 =====
 cd "$INFO_HUB_ROOT"
 if git diff --quiet "股票研究/daily-chance/$DATE/" 2>/dev/null; then
