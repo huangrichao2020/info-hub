@@ -25,6 +25,7 @@ const PANELS = {
   'cross-validation': lazy(() => import('../dashboard/CrossValidationPanel')),
   'amazingdata-kline': lazy(() => import('../quant/AmazingDataDailyBars')),
   'kline-multi-period': lazy(() => import('../quant/KlineMultiPeriod')),
+  'chokepoint': lazy(() => import('../chokepoint/ChokePointPanel')),
 }
 
 /** Mobile top nav bar */

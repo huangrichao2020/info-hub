@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中微公司 688012 · 刻蚀机国产替代先锋 | Serenity 产业链分析</title>
+<style>
+  :root {
+    --bg: #0a0e1a; --bg-soft: #131829; --bg-card: #1a2138;
+    --border: #2a3252; --accent: #00d4ff; --accent-soft: rgba(0,212,255,0.12);
+    --gold: #ffd700; --red: #ff4757; --green: #00d68f; --yellow: #ffb800;
+    --text: #e8ecf5; --text-soft: #9aa3bb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7; padding: 24px 16px 80px; }
+  .container { max-width: 920px; margin: 0 auto; }
+  .header { background: linear-gradient(135deg, #1a2138 0%, #131829 100%);
+    border: 1px solid var(--border); border-radius: 16px; padding: 32px 28px;
+    margin-bottom: 24px; position: relative; overflow: hidden; }
+  .header::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--gold)); }
+  .ticker-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .ticker { background: var(--accent); color: var(--bg); padding: 6px 14px;
+    border-radius: 8px; font-weight: 700; font-size: 18px; }
+  .score { background: var(--gold); color: var(--bg); padding: 6px 14px;
+    border-radius: 8px; font-weight: 700; font-size: 14px; }
+  .badge { background: var(--accent-soft); color: var(--accent); padding: 4px 10px;
+    border-radius: 6px; font-size: 12px; border: 1px solid var(--accent); }
+  .title { font-size: 28px; font-weight: 700; margin: 12px 0 6px; }
+  .subtitle { color: var(--text-soft); font-size: 15px; }
+  .card { background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+  .card-title { font-size: 20px; font-weight: 700; display: flex;
+    align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--border); }
+  .card-title .num { background: var(--accent); color: var(--bg); width: 32px;
+    height: 32px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 16px; font-weight: 700; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; margin: 16px 0; }
+  .metric { background: var(--bg-soft); padding: 14px; border-radius: 8px;
+    border-left: 3px solid var(--accent); }
+  .metric .label { font-size: 12px; color: var(--text-soft); margin-bottom: 4px; }
+  .metric .value { font-size: 18px; font-weight: 700; }
+  .chain { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+  .chain-node { background: var(--bg-soft); border-left: 4px solid var(--border);
+    padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px; }
+  .chain-node.up { border-left-color: var(--text-soft); }
+  .chain-node.target { border-left-color: var(--gold); background: linear-gradient(90deg, rgba(255,215,0,0.08), var(--bg-soft)); }
+  .chain-node.down { border-left-color: var(--green); }
+  .chain-node .arrow { color: var(--accent); font-size: 18px; }
+  .chain-node .name { font-weight: 600; min-width: 100px; }
+  .chain-node .desc { color: var(--text-soft); font-size: 14px; }
+  .chain-node.target .name { color: var(--gold); }
+  ul.bullet { list-style: none; padding-left: 0; }
+  ul.bullet li { padding: 8px 0 8px 24px; position: relative; border-bottom: 1px dashed var(--border); }
+  ul.bullet li:last-child { border-bottom: none; }
+  ul.bullet li::before { content: "▸"; position: absolute; left: 0;
+    color: var(--accent); font-weight: 700; }
+  .risk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .risk-card { padding: 16px; border-radius: 8px; border: 1px solid var(--border); }
+  .risk-card.high { background: rgba(255,71,87,0.08); border-color: var(--red); }
+  .risk-card.medium { background: rgba(255,184,0,0.08); border-color: var(--yellow); }
+  .risk-card.low { background: rgba(0,214,143,0.08); border-color: var(--green); }
+  .risk-card h4 { margin-bottom: 8px; font-size: 14px; }
+  .risk-card.high h4 { color: var(--red); }
+  .risk-card.medium h4 { color: var(--yellow); }
+  .risk-card.low h4 { color: var(--green); }
+  .methodology { background: var(--bg-soft); border-radius: 8px; padding: 16px;
+    margin-top: 16px; font-size: 13px; color: var(--text-soft); line-height: 1.8; }
+  .methodology strong { color: var(--accent); }
+  .footer { text-align: center; color: var(--text-soft); font-size: 13px;
+    padding: 24px 16px; border-top: 1px solid var(--border); margin-top: 32px; }
+  .footer a { color: var(--accent); text-decoration: none; }
+  @media (max-width: 600px) {
+    .title { font-size: 22px; } .header { padding: 20px 16px; } .card { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="ticker-row">
+      <span class="ticker">688012</span>
+      <span class="score">卡脖子评分 9/10</span>
+      <span class="badge">刻蚀机</span><span class="badge">5nm</span><span class="badge">台积电供应链</span>
+    </div>
+    <h1 class="title">中微公司 · 刻蚀机国产替代先锋</h1>
+    <p class="subtitle">进入台积电 5nm 供应链 · CCP/ICP 双布局 · Serenity 卡脖子框架 · 2026-06-29</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="num">1</span>产业链定位（Serenity 视角）</div>
+    <div class="chain">
+      <div class="chain-node up"><span class="arrow">▲</span><span class="name">上游</span><span class="desc">真空部件 + 射频电源</span></div><div class="chain-node target"><span class="arrow">★</span><span class="name">核心设备</span><span class="desc">CCP 刻蚀 + ICP 刻蚀</span></div><div class="chain-node down"><span class="arrow">▼</span><span class="name">工艺集成</span><span class="desc">5nm/3nm 先进制程</span></div><div class="chain-node down"><span class="arrow">▼</span><span class="name">晶圆厂</span><span class="desc">台积电/中芯/三星</span></div><div class="chain-node down"><span class="arrow">▼</span><span class="name">下游</span><span class="desc">AI 芯片/HBM</span></div>
+    </div>
+    <div class="methodology">
+      <strong>卡脖子定位原理</strong>：中微公司刻蚀机进入台积电 5nm 供应链，CCP/ICP 双布局。一旦断供，国内先进制程扩产停滞。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="num">2</span>公司核心数据</div>
+    <div class="metrics">
+      <div class="metric"><div class="label">主营业务</div><div class="value">刻蚀机</div></div><div class="metric"><div class="label">先进制程</div><div class="value">5nm 进入台积电</div></div><div class="metric"><div class="label">工艺</div><div class="value">CCP + ICP</div></div><div class="metric"><div class="label">客户</div><div class="value">台积电/中芯/三星</div></div><div class="metric"><div class="label">对标</div><div class="value">LAM/TEL</div></div><div class="metric"><div class="label">机构覆盖</div><div class="value">★★★★★</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="num">3</span>核心投资逻辑</div>
+    <ul class="bullet">
+      <li><strong>5nm 进入台积电</strong>：CCP 刻蚀机进入台积电 5nm 供应链，国产替代里程碑</li><li><strong>CCP + ICP 双布局</strong>：覆盖介质刻蚀 + 金属刻蚀全工艺</li><li><strong>先进制程核心</strong>：3nm/5nm 关键工艺设备</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="num">4</span>风险定价</div>
+    <div class="risk-grid">
+      <div class="risk-card high"><h4>🔴 高风险</h4><ul class="bullet"><li>技术迭代快</li><li>海外巨头反扑</li></ul></div><div class="risk-card medium"><h4>🟡 中风险</h4><ul class="bullet"><li>短期超买</li><li>下游晶圆厂资本开支</li></ul></div><div class="risk-card low"><h4>🟢 低风险</h4><ul class="bullet"><li>5nm 验证壁垒</li><li>台积电背书</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="num">5</span>Serenity 6 条排除规则验证</div>
+    <ul class="bullet">
+      <li>✅ 主营占比 60%+（非蹭热点）</li>
+      <li>✅ 国内格局清晰（全球 ≤ 5 家）</li>
+      <li>✅ 扩产周期 18-24 个月（壁垒高）</li>
+      <li>✅ 进口替代逻辑成立（海外 80%+ 占比）</li>
+      <li>✅ 估值未充分反映</li>
+      <li>✅ 机构充分覆盖</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="num">6</span>操作建议</div>
+    <div class="methodology">
+      <strong>配置仓位</strong>：激进型组合 8-12%；平衡型 5-8%；稳健型 3-5%<br>
+      <strong>时间窗</strong>：2026 H2 订单 → 2027 5nm 量产<br>
+      <strong>关键跟踪</strong>：①台积电订单 ②5nm/3nm 工艺 ③CCP/ICP 出货<br>
+      <strong>风险提示</strong>：⚠️ PE/股价数据可能已过时，请用户核实最新行情  ⚠️ 不构成投资建议
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="num">7</span>方法论声明</div>
+    <div class="methodology">
+      本文基于 <strong>Serenity 卡脖子框架 v2.0</strong>（github.com/fadewalk/serenity-stock-choke）生成。<br>
+      <strong>四维框架</strong>：盘面诊断 + 事件驱动 + 基本面 + 卡脖子定位<br>
+      <strong>数据来源</strong>：上市公司公告 + 行业数据（SEMI/SNE） + 公开市场信息 + 卖方研报综合<br>
+      <strong>局限性</strong>：① 实时行情 / PE / 市值数据可能已过时，需独立核实 ② 不构成投资建议 ③ 卡脖子评分 1-10 为主观判断
+    </div>
+  </div>
+
+  <div class="footer">
+    Mavis 出品 · Serenity 卡脖子框架 · 2026-06-29<br>
+    关联文档：<a href="#">knowhub/domains/trading-review/methodology/serenity-choke-point.md</a>
+  </div>
+</div>
+</body>
+</html>

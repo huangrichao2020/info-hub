@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serenity 卡脖子产业链分析 · 29 只 A 股标的 · info-hub</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg-soft: #131829;
+    --bg-card: #1a2138;
+    --border: #2a3252;
+    --accent: #00d4ff;
+    --accent-soft: rgba(0, 212, 255, 0.12);
+    --gold: #ffd700;
+    --red: #ff4757;
+    --green: #00d68f;
+    --yellow: #ffb800;
+    --text: #e8ecf5;
+    --text-soft: #9aa3bb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 24px 16px 80px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #1a2138 0%, #131829 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 32px;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+  }
+  .hero::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--gold));
+  }
+  .hero h1 { font-size: 32px; margin-bottom: 12px; }
+  .hero .subtitle { color: var(--text-soft); font-size: 15px; margin-bottom: 24px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 20px; }
+  .stat {
+    background: var(--bg-soft); padding: 16px; border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .stat .num { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat .label { font-size: 13px; color: var(--text-soft); margin-top: 4px; }
+  /* Filters */
+  .filters {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .filter-btn {
+    background: var(--bg-card); border: 1px solid var(--border);
+    color: var(--text-soft); padding: 8px 16px; border-radius: 8px;
+    cursor: pointer; font-size: 13px; transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+  /* Track */
+  .track {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .track-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 18px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .track-emoji { font-size: 24px; }
+  .track-title { font-size: 20px; font-weight: 700; flex: 1; }
+  .track-score {
+    background: var(--gold); color: var(--bg);
+    padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;
+  }
+  .track-desc { color: var(--text-soft); font-size: 13px; margin-bottom: 16px; }
+  /* Stock grid */
+  .stocks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .stock-card {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: all 0.2s;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .stock-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 212, 255, 0.1);
+  }
+  .stock-code {
+    background: var(--accent); color: var(--bg);
+    padding: 3px 10px; border-radius: 6px;
+    font-size: 12px; font-weight: 700;
+    display: inline-block;
+    margin-bottom: 6px;
+  }
+  .stock-name {
+    font-size: 16px; font-weight: 700; margin-bottom: 4px;
+  }
+  .stock-desc { font-size: 12px; color: var(--text-soft); }
+  .stock-score {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: 700;
+  }
+  /* Footer */
+  .footer {
+    text-align: center; color: var(--text-soft);
+    font-size: 13px; padding: 24px 16px;
+    border-top: 1px solid var(--border);
+    margin-top: 32px;
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+  /* Methodology */
+  .methodology {
+    background: var(--bg-soft); border-radius: 10px;
+    padding: 20px; margin-top: 16px; font-size: 13px;
+    color: var(--text-soft); line-height: 1.8;
+  }
+  .methodology strong { color: var(--accent); }
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 22px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stocks { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="hero">
+    <h1>🔬 Serenity 卡脖子产业链分析</h1>
+    <p class="subtitle">大 A 未来 1-3 年 · 7 大赛道 · 29 只真瓶颈标的</p>
+    <p style="font-size: 13px; color: var(--text-soft); margin-bottom: 16px;">AI 算力 × 国产替代双轮驱动 · Mavis 出品 · 2026-06-29</p>
+    <div class="stats">
+      <div class="stat"><div class="num">7</div><div class="label">卡脖子赛道</div></div>
+      <div class="stat"><div class="num">29</div><div class="label">A 股标的</div></div>
+      <div class="stat"><div class="num">9/10</div><div class="label">最高评分</div></div>
+      <div class="stat"><div class="num">5Y</div><div class="label">时间窗</div></div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="filterTrack('all')">全部</button>
+    <button class="filter-btn" onclick="filterTrack('1')">🥇 磷化铟+锗</button>
+    <button class="filter-btn" onclick="filterTrack('2')">🥈 电子特气</button>
+    <button class="filter-btn" onclick="filterTrack('3')">🥉 NOR Flash</button>
+    <button class="filter-btn" onclick="filterTrack('4')">🤖 机器人零部件</button>
+    <button class="filter-btn" onclick="filterTrack('5')">🏭 半导体设备</button>
+    <button class="filter-btn" onclick="filterTrack('6')">🧪 半导体材料</button>
+    <button class="filter-btn" onclick="filterTrack('7')">🚀 碳化硅+远期</button>
+  </div>
+
+  <!-- 赛道 1 -->
+  <div class="track" data-track="1">
+    <div class="track-header">
+      <span class="track-emoji">🥇</span>
+      <span class="track-title">磷化铟 + 高纯锗 · AI 光模块"心脏"</span>
+      <span class="track-score">评分 9/10</span>
+    </div>
+    <p class="track-desc">6 英寸 InP 衬底：全球被日美企业垄断（住友/JX/AXT），国内自给率 < 5%。订单排到 2028 年。</p>
+    <div class="stocks">
+      <a href="yunnan-germanium-002428.html" class="stock-card">
+        <span class="stock-code">002428</span>
+        <div class="stock-name">云南锗业</div>
+        <div class="stock-desc">A 股唯一实现 6 英寸 InP 量产 · 锗资源管制</div>
+        <div class="stock-score">★★★★★ 评分 9/10</div>
+      </a>
+      <a href="youyan-xincai-600206.html" class="stock-card">
+        <span class="stock-code">600206</span>
+        <div class="stock-name">有研新材</div>
+        <div class="stock-desc">靶材 + 稀土 + InP 第二梯队 · 3nm 全覆盖</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="guangzhi-keji-300566.html" class="stock-card">
+        <span class="stock-code">300566</span>
+        <div class="stock-name">光智科技</div>
+        <div class="stock-desc">军工红外锗镜片核心 · 国家战略资源</div>
+        <div class="stock-score">★★★★ 评分 7/10</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 赛道 2 -->
+  <div class="track" data-track="2">
+    <div class="track-header">
+      <span class="track-emoji">🥈</span>
+      <span class="track-title">六氟化钨 + 电子特气 · 先进制程"血液"</span>
+      <span class="track-score">评分 9/10</span>
+    </div>
+    <p class="track-desc">WF6 涨价 500%+，海外巨头 7 月可能断供。国内 7N 级全球唯一稳定量产。</p>
+    <div class="stocks">
+      <a href="zhongchuan-688146.html" class="stock-card">
+        <span class="stock-code">688146</span>
+        <div class="stock-name">中船特气</div>
+        <div class="stock-desc">WF6 全球第一 · 7N 级全球唯一稳定量产</div>
+        <div class="stock-score">★★★★★ 评分 9/10</div>
+      </a>
+      <a href="haohua-600378.html" class="stock-card">
+        <span class="stock-code">600378</span>
+        <div class="stock-name">昊华科技</div>
+        <div class="stock-desc">国家特气研究基地 · 含氟电子气全栈</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="huate-qiti-688268.html" class="stock-card">
+        <span class="stock-code">688268</span>
+        <div class="stock-name">华特气体</div>
+        <div class="stock-desc">20+ 特气突破 · 国产替代先行者</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 赛道 3 -->
+  <div class="track" data-track="3">
+    <div class="track-header">
+      <span class="track-emoji">🥉</span>
+      <span class="track-title">NOR Flash + 利基存储 · 端侧 AI + 车规</span>
+      <span class="track-score">评分 8.5/10</span>
+    </div>
+    <p class="track-desc">海外巨头退出利基市场，兆易承接份额。MCU GD32 覆盖机器人关节/灵巧手/IMU。</p>
+    <div class="stocks">
+      <a href="zhaoyi-603986.html" class="stock-card">
+        <span class="stock-code">603986</span>
+        <div class="stock-name">兆易创新</div>
+        <div class="stock-desc">NOR 全球第二 23.2% · 310 亿颗累计出货</div>
+        <div class="stock-score">★★★★★ 评分 8.5/10</div>
+      </a>
+      <a href="puran-688766.html" class="stock-card">
+        <span class="stock-code">688766</span>
+        <div class="stock-name">普冉股份</div>
+        <div class="stock-desc">中小容量 NOR + EEPROM · 第二梯队</div>
+        <div class="stock-score">★★★ 评分 7/10</div>
+      </a>
+      <a href="baiwei-688525.html" class="stock-card">
+        <span class="stock-code">688525</span>
+        <div class="stock-name">佰维存储</div>
+        <div class="stock-desc">嵌入式 + 工业存储 · AI 端侧领先</div>
+        <div class="stock-score">★★★ 评分 7/10</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 赛道 4 -->
+  <div class="track" data-track="4">
+    <div class="track-header">
+      <span class="track-emoji">🤖</span>
+      <span class="track-title">机器人核心零部件 · 减速器 + MCU</span>
+      <span class="track-score">评分 8/10</span>
+    </div>
+    <p class="track-desc">2026 量产元年 · 全球出货 +700%。谐波减速器、伺服电机、MCU 三大卡脖子环节。</p>
+    <div class="stocks">
+      <a href="lvde-xiebo-688017.html" class="stock-card">
+        <span class="stock-code">688017</span>
+        <div class="stock-name">绿的谐波</div>
+        <div class="stock-desc">谐波减速器国内龙头 · 全球第二</div>
+        <div class="stock-score">★★★★★ 评分 8/10</div>
+      </a>
+      <a href="aisidun-002747.html" class="stock-card">
+        <span class="stock-code">002747</span>
+        <div class="stock-name">埃斯顿</div>
+        <div class="stock-desc">国产工业机器人本体第一 · 伺服+控制器+本体</div>
+        <div class="stock-score">★★★★ 评分 7.5/10</div>
+      </a>
+      <a href="tuopu-601689.html" class="stock-card">
+        <span class="stock-code">601689</span>
+        <div class="stock-name">拓普集团</div>
+        <div class="stock-desc">进入特斯拉 Optimus 供应链 · NVH 底盘延伸</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 赛道 5 -->
+  <div class="track" data-track="5">
+    <div class="track-header">
+      <span class="track-emoji">🏭</span>
+      <span class="track-title">半导体设备 · 刻蚀/沉积/清洗</span>
+      <span class="track-score">评分 8/10</span>
+    </div>
+    <p class="track-desc">十五五政策核心 · 集成电路"决定性突破"。平台型 + 刻蚀 + 清洗 + PECVD 全栈国产替代。</p>
+    <div class="stocks">
+      <a href="beifang-huachuang-002371.html" class="stock-card">
+        <span class="stock-code">002371</span>
+        <div class="stock-name">北方华创</div>
+        <div class="stock-desc">平台型龙头 · 刻蚀/沉积/清洗 4 大工艺全覆盖</div>
+        <div class="stock-score">★★★★★ 评分 9/10</div>
+      </a>
+      <a href="zhongwei-688012.html" class="stock-card">
+        <span class="stock-code">688012</span>
+        <div class="stock-name">中微公司</div>
+        <div class="stock-desc">刻蚀机龙头 · 进入台积电 5nm 供应链</div>
+        <div class="stock-score">★★★★★ 评分 9/10</div>
+      </a>
+      <a href="shengmei-688082.html" class="stock-card">
+        <span class="stock-code">688082</span>
+        <div class="stock-name">盛美上海</div>
+        <div class="stock-desc">单片清洗技术领先 · 海力士核心供应商</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="tuojing-688072.html" class="stock-card">
+        <span class="stock-code">688072</span>
+        <div class="stock-name">拓荆科技</div>
+        <div class="stock-desc">PECVD 突破 · 涂胶显影打破日企垄断</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 赛道 6 -->
+  <div class="track" data-track="6">
+    <div class="track-header">
+      <span class="track-emoji">🧪</span>
+      <span class="track-title">半导体材料 · 光刻胶/CMP/靶材</span>
+      <span class="track-score">评分 8/10</span>
+    </div>
+    <p class="track-desc">国产化率 10-20% → 30-50% 5 年长坡。光刻胶/CMP/靶材/封装/载板 全栈卡脖子。</p>
+    <div class="stocks">
+      <a href="nanda-300346.html" class="stock-card">
+        <span class="stock-code">300346</span>
+        <div class="stock-name">南大光电</div>
+        <div class="stock-desc">ArF 光刻胶国内唯一量产 · 光刻胶国家队</div>
+        <div class="stock-score">★★★★★ 评分 9/10</div>
+      </a>
+      <a href="jiangfeng-300666.html" class="stock-card">
+        <span class="stock-code">300666</span>
+        <div class="stock-name">江丰电子</div>
+        <div class="stock-desc">高纯溅射靶材全球领先 · 3nm 全覆盖</div>
+        <div class="stock-score">★★★★★ 评分 8.5/10</div>
+      </a>
+      <a href="dinglong-300054.html" class="stock-card">
+        <span class="stock-code">300054</span>
+        <div class="stock-name">鼎龙股份</div>
+        <div class="stock-desc">CMP 抛光垫国产唯一 · 浸没式 ArF 突破</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="anji-keji-688019.html" class="stock-card">
+        <span class="stock-code">688019</span>
+        <div class="stock-name">安集科技</div>
+        <div class="stock-desc">CMP 抛光液龙头 · 毛利率 56%</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="tongcheng-xincai-603650.html" class="stock-card">
+        <span class="stock-code">603650</span>
+        <div class="stock-name">彤程新材</div>
+        <div class="stock-desc">KrF 光刻胶国内唯一量产 · ArF 推进中</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="shennan-dianlu-002916.html" class="stock-card">
+        <span class="stock-code">002916</span>
+        <div class="stock-name">深南电路</div>
+        <div class="stock-desc">ABF 载板国产替代核心 · AI 服务器 PCB</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="yake-keji-002409.html" class="stock-card">
+        <span class="stock-code">002409</span>
+        <div class="stock-name">雅克科技</div>
+        <div class="stock-desc">电子特气 + 光刻胶 + 前驱体 · 综合平台</div>
+        <div class="stock-score">★★★★ 评分 7.5/10</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 赛道 7 -->
+  <div class="track" data-track="7">
+    <div class="track-header">
+      <span class="track-emoji">🚀</span>
+      <span class="track-title">碳化硅 + 远期赛道</span>
+      <span class="track-score">评分 7-8/10</span>
+    </div>
+    <p class="track-desc">800V 高压快充 + 机器人骨架 + 航空航天。SiC 紧缺持续到 2028，T1200 碳纤维全球首发。</p>
+    <div class="stocks">
+      <a href="tianyue-xianjin-688234.html" class="stock-card">
+        <span class="stock-code">688234</span>
+        <div class="stock-name">天岳先进</div>
+        <div class="stock-desc">8 英寸 SiC 衬底龙头 · 车规级认证</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="sanan-guangdian-600703.html" class="stock-card">
+        <span class="stock-code">600703</span>
+        <div class="stock-name">三安光电</div>
+        <div class="stock-desc">SiC + GaN IDM 全产业链</div>
+        <div class="stock-score">★★★★ 评分 7.5/10</div>
+      </a>
+      <a href="luxiao-keji-002617.html" class="stock-card">
+        <span class="stock-code">002617</span>
+        <div class="stock-name">露笑科技</div>
+        <div class="stock-desc">SiC 衬底产能快速释放 · 成本优势</div>
+        <div class="stock-score">★★★ 评分 7/10</div>
+      </a>
+      <a href="zhongfu-shenying-688295.html" class="stock-card">
+        <span class="stock-code">688295</span>
+        <div class="stock-name">中复神鹰</div>
+        <div class="stock-desc">T1200 级碳纤维全球首发 · 百吨级量产</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="guangwei-fucai-300699.html" class="stock-card">
+        <span class="stock-code">300699</span>
+        <div class="stock-name">光威复材</div>
+        <div class="stock-desc">军工碳纤维龙头 · 航空航天核心客户</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+      <a href="baotai-gufen-600456.html" class="stock-card">
+        <span class="stock-code">600456</span>
+        <div class="stock-name">宝钛股份</div>
+        <div class="stock-desc">航空钛材市占率 90% · 军工 + 机器人双驱动</div>
+        <div class="stock-score">★★★★ 评分 8/10</div>
+      </a>
+    </div>
+  </div>
+
+  <div class="methodology">
+    <strong>方法论声明</strong><br>
+    本文基于 <strong>Serenity 卡脖子框架 v2.0</strong>（github.com/fadewalk/serenity-stock-choke）生成。<br>
+    <strong>四维框架</strong>：盘面诊断 + 事件驱动 + 基本面 + 卡脖子定位<br>
+    <strong>6 条排除规则</strong>：①主营占比 ②国内格局 ③扩产周期 ④进口替代 ⑤估值反映 ⑥机构覆盖<br>
+    <strong>数据来源</strong>：上市公司公告 + 行业数据（SEMI/SNE/TrendForce） + 公开市场信息 + 卖方研报综合<br>
+    <strong>局限性</strong>：①实时行情 / PE / 市值数据可能已过时 ②不构成投资建议 ③卡脖子评分 1-10 为主观判断
+  </div>
+
+  <div class="footer">
+    <strong>Mavis 出品</strong> · Serenity 卡脖子框架 · info-hub / 股票研究 / chokepoint<br>
+    关联文档：<a href="#">knowhub/domains/trading-review/methodology/serenity-choke-point.md</a> · 
+    <a href="#">github.com/fadewalk/serenity-stock-choke</a><br>
+    <span style="font-size: 12px;">2026-06-29 · 7 大卡脖子赛道 · 29 只 A 股真瓶颈标的</span>
+  </div>
+
+</div>
+
+<script>
+  function filterTrack(trackId) {
+    document.querySelectorAll('.track').forEach(track => {
+      track.style.display = (trackId === 'all' || track.dataset.track === trackId) ? 'block' : 'none';
+    });
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+  }
+</script>
+
+</body>
+</html>

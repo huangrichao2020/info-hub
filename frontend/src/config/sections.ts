@@ -201,6 +201,15 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: Zap,
     group: 'core',
   },
+  'chokepoint': {
+    key: 'chokepoint',
+    label: '卡脖子分析',
+    shortLabel: '卡脖子',
+    description: 'Serenity 框架 · 7 大卡脖子赛道 · 29 只 A 股真瓶颈标的',
+    dotColor: 'var(--color-gold)',
+    icon: AlertTriangle,
+    group: 'evidence',
+  },
 }
 
 export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: string }[] = [
@@ -230,4 +239,5 @@ export const SECTION_ORDER: Section[] = [
   'amazingdata-kline',
   'kline-multi-period',
   'cross-validation',
+  'chokepoint',
 ]

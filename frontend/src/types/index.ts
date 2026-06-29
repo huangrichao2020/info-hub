@@ -18,6 +18,7 @@ export type Section =
   | 'kline-multi-period'
   | 'cross-validation'
   | 'trading-system'
+  | 'chokepoint'
 
 export interface NewsItem {
   id: string
