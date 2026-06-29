@@ -11,6 +11,7 @@ import {
   CandlestickChart,
   CalendarDays,
   MessageCircle,
+  Target,
   AlertTriangle,
   ShieldCheck,
   BarChart3,
@@ -210,6 +211,15 @@ export const SECTION_META: Record<Section, SectionMeta> = {
     icon: AlertTriangle,
     group: 'evidence',
   },
+  'daily-chance': {
+    key: 'daily-chance',
+    label: '每日机会',
+    shortLabel: '机会',
+    description: '每日 S/A/B 机会扫描 · S 级重点 · A/B 参考',
+    dotColor: 'var(--color-red)',
+    icon: Target,
+    group: 'core',
+  },
 }
 
 export const SECTION_GROUPS: { key: SectionMeta['group']; label: string; hint: string }[] = [
@@ -240,4 +250,5 @@ export const SECTION_ORDER: Section[] = [
   'kline-multi-period',
   'cross-validation',
   'chokepoint',
+  'daily-chance',
 ]

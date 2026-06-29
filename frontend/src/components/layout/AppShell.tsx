@@ -26,6 +26,7 @@ const PANELS = {
   'amazingdata-kline': lazy(() => import('../quant/AmazingDataDailyBars')),
   'kline-multi-period': lazy(() => import('../quant/KlineMultiPeriod')),
   'chokepoint': lazy(() => import('../chokepoint/ChokePointPanel')),
+  'daily-chance': lazy(() => import('../daily-chance/DailyChancePanel')),
 }
 
 /** Mobile top nav bar */

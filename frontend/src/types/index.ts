@@ -19,6 +19,7 @@ export type Section =
   | 'cross-validation'
   | 'trading-system'
   | 'chokepoint'
+  | 'daily-chance'
 
 export interface NewsItem {
   id: string
