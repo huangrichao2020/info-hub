@@ -1070,11 +1070,16 @@ source: mavis-serenity-v2
 
 def main():
     written = []
+    skipped = 0
     for stock in STOCKS:
         content = render_stock(stock)
         # 文件名：标的 + 代码（Obsidian 链接友好）
         filename = f"{stock['name']} {stock['code']}.md"
         path = STOCKS_DIR / filename
+        # 用户编辑保护：如果 vault 已有此文件，跳过（避免覆盖用户手动编辑）
+        if path.exists():
+            skipped += 1
+            continue
         path.write_text(content, encoding="utf-8")
         written.append((stock["code"], stock["name"], path))
         print(f"✅ {stock['code']} {stock['name']}")
@@ -1128,7 +1133,7 @@ tags: [moc, chokepoint, 29-stocks]
     index_path = STOCKS_DIR / "_index.md"
     index_path.write_text(index_content, encoding="utf-8")
     print(f"\n✅ MOC 索引: {index_path}")
-    print(f"\n📊 完成 {len(written)} 只股笔记 + 1 个 MOC")
+    print(f"\n📊 完成 {len(written)} 只股笔记 + 1 个 MOC (跳过 {skipped} 个已存在文件，保护用户编辑)")
 
 
 if __name__ == "__main__":

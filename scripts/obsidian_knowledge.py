@@ -79,6 +79,9 @@ auto_synced: true
         full = frontmatter + content
 
         out = METHODOLOGY_DIR / src_name
+        # 用户编辑保护
+        if out.exists():
+            continue
         out.write_text(full, encoding="utf-8")
         print(f"✅ {src_name} → {out}")
 
@@ -204,6 +207,9 @@ created: 2026-06-30
 *由 Mavis 自动生成的概念笔记 · 双向链接驱动 · 可在 Obsidian 中用 Ctrl/Cmd + G 查看关联*
 """
         out = CONCEPTS_DIR / filename
+        # 用户编辑保护
+        if out.exists():
+            continue
         out.write_text(content, encoding="utf-8")
         print(f"✅ 概念页: {out}")
 
@@ -313,6 +319,9 @@ tags: [track, chokepoint, "{t['name']}"]
 *由 Mavis 自动维护的赛道笔记 · {datetime.now().strftime('%Y-%m-%d')}*
 """
         out = TRADING_CONCEPTS / f"{t['name']}.md"
+        # 用户编辑保护
+        if out.exists():
+            continue
         out.write_text(content, encoding="utf-8")
         print(f"✅ 赛道页: {t['name']}")
 
